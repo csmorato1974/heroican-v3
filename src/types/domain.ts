@@ -17,6 +17,16 @@ export interface Presentation {
   pricePen: number;
 }
 
+export interface Nutrition {
+  proteina: string;
+  grasa: string;
+  fibra: string;
+  humedad: string;
+  ceniza: string;
+  calcio: string;
+  fosforo: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -26,6 +36,7 @@ export interface Product {
   benefits: string[];
   ingredientsSummary: string;
   storeUrl: string;
+  nutrition?: Nutrition;
 }
 
 export interface QrParams {

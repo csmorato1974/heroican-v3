@@ -1,4 +1,15 @@
 import { PRODUCTS } from "@/lib/products";
+import type { Nutrition } from "@/types/domain";
+
+const NUTRITION_LABELS: Array<[keyof Nutrition, string]> = [
+  ["proteina", "Proteína"],
+  ["grasa", "Grasa"],
+  ["fibra", "Fibra"],
+  ["humedad", "Humedad"],
+  ["ceniza", "Ceniza"],
+  ["calcio", "Calcio"],
+  ["fosforo", "Fósforo"],
+];
 
 export function ProductsMatrix() {
   return (
@@ -18,7 +29,7 @@ export function ProductsMatrix() {
           {PRODUCTS.map((p) => (
             <article key={p.id} className="brand-card p-6 flex flex-col">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="text-xl leading-tight">{p.name}</h3>
+                <h3 className="text-lg sm:text-xl leading-tight min-w-0">{p.name}</h3>
                 <span className="shrink-0 border border-accent text-accent text-[10px] font-bold italic uppercase tracking-wider px-2 py-1 rounded-full">
                   {p.lifeStage} · {p.breedSize}
                 </span>
@@ -39,6 +50,28 @@ export function ProductsMatrix() {
                   </li>
                 ))}
               </ul>
+
+              {p.nutrition && (
+                <div className="mt-6">
+                  <span className="gold-rule block" aria-hidden />
+                  <p className="mt-4 font-display text-[11px] font-black uppercase tracking-[0.15em] text-accent">
+                    Análisis garantizado
+                  </p>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    {NUTRITION_LABELS.map(([key, label]) => (
+                      <div
+                        key={key}
+                        className="flex items-baseline justify-between gap-2 border-b border-dashed border-border py-1.5 min-w-0"
+                      >
+                        <dt className="text-foreground/60 truncate">{label}</dt>
+                        <dd className="font-display font-bold text-foreground text-right shrink-0">
+                          {p.nutrition![key]}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
 
               <p className="mt-5 text-xs text-foreground/60 leading-relaxed">
                 {p.ingredientsSummary}

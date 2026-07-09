@@ -227,16 +227,16 @@ export function ChatbotPanel({ qrParams }: Props) {
           setMinimized(false);
           track("panel_restored", qrParams);
         }}
-        aria-label="Abrir asistente Heroican"
+        aria-label="Abrir asistente HEROICAN"
         className="fixed bottom-5 right-5 z-50 group flex items-center gap-3"
       >
         {/* Tooltip / hint bubble */}
         <span className="hidden sm:flex items-center rounded-2xl rounded-br-sm border border-border bg-card/95 backdrop-blur px-3 py-2 text-xs font-semibold text-foreground shadow-md group-hover:-translate-x-0.5 transition-transform">
           {started
             ? `Continuar diagnóstico · ${progressPct}%`
-            : "¡Hola! Soy tu asistente 🐾"}
+            : "Hola, soy HEROICAN. Encontremos su alimento."}
         </span>
-        <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg pulse-glow group-hover:scale-105 transition-transform">
+        <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg  group-hover:scale-105 transition-transform">
           <Dog className="h-8 w-8" strokeWidth={2.2} />
           {started && (
             <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground border-2 border-background">
@@ -254,7 +254,7 @@ export function ChatbotPanel({ qrParams }: Props) {
   // ===== Full panel =====
   return (
     <aside
-      className="hud-panel fixed z-50 flex flex-col overflow-hidden shadow-2xl
+      className="brand-card fixed z-50 flex flex-col overflow-hidden shadow-2xl
         inset-x-3 bottom-3 top-auto h-[80svh] rounded-2xl
         sm:inset-x-auto sm:right-5 sm:bottom-24 sm:top-auto sm:w-[380px] sm:h-[600px] sm:max-h-[calc(100svh-7rem)]"
     >
@@ -272,15 +272,15 @@ export function ChatbotPanel({ qrParams }: Props) {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground font-display pulse-glow">
+        <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground font-display ">
           H
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
-            Asistente Heroican
+            Asistente HEROICAN
           </p>
           <p className="text-xs text-muted-foreground truncate">
-            Diagnóstico nutricional
+            Alimenta tu lealtad
           </p>
         </div>
         <button
@@ -299,7 +299,7 @@ export function ChatbotPanel({ qrParams }: Props) {
       <div className="h-0.5 w-full bg-border">
         <div
           className="h-full bg-accent transition-all"
-          style={{ width: `${progressPct}%`, boxShadow: "var(--shadow-glow)" }}
+          style={{ width: `${progressPct}%`,  }}
         />
       </div>
 
@@ -307,7 +307,7 @@ export function ChatbotPanel({ qrParams }: Props) {
       <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
         {step === "welcome" && (
           <Bubble>
-            ¡Hola! Soy tu <strong className="text-primary">Asistente Heroican</strong>.
+            ¡Hola! Soy tu <strong className="text-primary">Asistente HEROICAN</strong>.
             Te haré unas preguntas rápidas para recomendarte el alimento ideal
             para tu engreído. 🐾
           </Bubble>
@@ -398,7 +398,7 @@ export function ChatbotPanel({ qrParams }: Props) {
             <Bubble>
               ¡Listo! Para <strong>{answers.petName}</strong> recomendamos:
             </Bubble>
-            <div className="hud-panel rounded-2xl p-4">
+            <div className="brand-card rounded-2xl p-4">
               <p className="font-display text-lg text-primary">
                 {recommended.name}
               </p>
@@ -510,7 +510,7 @@ export function ChatbotPanel({ qrParams }: Props) {
             <Bubble>
               🎉 ¡Todo listo! Estás a un mensaje de recibir tu asesoría.
             </Bubble>
-            <div className="hud-panel rounded-md p-4 text-sm">
+            <div className="brand-card rounded-md p-4 text-sm">
               Te derivaremos al WhatsApp comercial con la información de{" "}
               <strong>{answers.petName}</strong> y la recomendación de{" "}
               <strong className="text-accent">{recommended.name}</strong>.

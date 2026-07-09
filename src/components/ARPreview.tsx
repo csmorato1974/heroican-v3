@@ -1,79 +1,75 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Activity, Sparkles, Wind, Zap, Camera } from "lucide-react";
+import { Camera } from "lucide-react";
 import { track } from "@/lib/tracker";
 import { BlueprintCamera } from "./blueprint/BlueprintCamera";
 import type { QrParams } from "@/types/domain";
 import heroicanPack from "@/assets/heroican-ar-phone.png.asset.json";
 
 const facets = [
-  { icon: Wind, title: "Confort digestivo" },
-  { icon: Zap, title: "Vitalidad y energía" },
-  { icon: Sparkles, title: "Piel y pelaje" },
-  { icon: Activity, title: "Palatabilidad" },
+  { title: "Confort digestivo", desc: "Tránsito tranquilo, gases bajo control." },
+  { title: "Vitalidad y energía", desc: "Para caminatas, juegos y siestas felices." },
+  { title: "Piel y pelaje", desc: "Brillo y suavidad que se acarician." },
+  { title: "Palatabilidad", desc: "Sabor honesto que su olfato reconoce." },
 ];
 
 export function ARPreview({ qrParams }: { qrParams: QrParams }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <section id="experiencia-camara" className="mx-auto max-w-6xl px-4 py-20 scroll-mt-20">
-      <div className="hud-panel rounded-3xl p-8 sm:p-12" style={{ background: "var(--gradient-hero)" }}>
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+    <section
+      id="experiencia-camara"
+      className="scroll-mt-20 bg-secondary/40 border-y border-border"
+    >
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:py-24">
+        <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
           <div>
-            <div className="flex items-center gap-3">
-              <span className="hud-chip">Experiencia con cámara</span>
-            </div>
-            <h2 className="mt-4 text-3xl sm:text-4xl font-semibold">
-              Conoce a tu mascota por dentro<span className="text-accent">.</span>
+            <span className="brand-chip">Experiencia con cámara</span>
+            <h2 className="mt-5 text-4xl sm:text-5xl">
+              Conoce a tu <span className="text-primary">compañero</span>
             </h2>
-            <p className="mt-2 max-w-xl text-base text-muted-foreground">
-              Toma una foto y nuestra IA detecta rasgos visibles de tu mascota
-              — tamaño, pelaje y estilo — para darte una orientación
-              nutricional breve y personalizada de Heroican.
+            <p className="italic-sub mt-3">Una foto basta para orientarte.</p>
+            <p className="mt-4 max-w-xl text-base text-foreground/80">
+              Toma una foto a tu perro y te damos una lectura visual con una
+              recomendación cálida y honesta, pensada para su etapa de vida.
             </p>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            <div className="mt-8 grid gap-x-6 gap-y-5 sm:grid-cols-2">
               {facets.map((f) => (
-                <div key={f.title} className="hud-panel rounded-2xl p-4">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <f.icon className="h-5 w-5 text-primary" />
-                  </span>
-                  <p className="mt-3 font-display text-base">{f.title}</p>
+                <div key={f.title} className="border-t border-border pt-4">
+                  <h3 className="text-base">{f.title}</h3>
+                  <p className="mt-1 text-sm text-foreground/70">{f.desc}</p>
                 </div>
               ))}
             </div>
 
+            <div id="foto-mascota" className="mt-10 scroll-mt-24">
+              <Button
+                className="rounded-md bg-primary px-6 h-12 font-bold uppercase tracking-wide text-primary-foreground hover:bg-primary/90"
+                onClick={() => {
+                  setOpen(true);
+                  track("blueprint_camera_opened", qrParams);
+                }}
+              >
+                <Camera className="mr-2 h-5 w-5" />
+                Tomar foto a mi perro
+              </Button>
+              <p className="mt-3 text-xs italic text-accent">
+                Orientativo. No reemplaza la evaluación de tu veterinario.
+              </p>
+            </div>
           </div>
 
-          <div id="foto-mascota" className="relative scroll-mt-24">
-            <div className="absolute -inset-6 rounded-3xl bg-primary/5 blur-2xl" aria-hidden />
+          <div className="relative">
             <img
               src={heroicanPack.url}
-              alt="Empaque Heroican con interfaz de Realidad Aumentada mostrando scanpoints e ingredientes"
-              className="relative w-full h-auto rounded-2xl"
+              alt="Empaque HEROICAN con análisis visual de la mascota"
+              className="w-full h-auto rounded-2xl border border-border bg-background"
               loading="lazy"
             />
           </div>
         </div>
-
-        <div className="mt-8 flex flex-col items-center gap-2">
-          <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6 h-12 font-bold"
-            onClick={() => {
-              setOpen(true);
-              track("blueprint_camera_opened", qrParams);
-            }}
-          >
-            <Camera className="mr-2 h-5 w-5" />
-            Tomar foto a mi mascota
-          </Button>
-          <p className="text-xs text-muted-foreground italic">
-            Análisis visual en segundos. Orientativo, no reemplaza al veterinario.
-          </p>
-        </div>
       </div>
-
 
       <BlueprintCamera open={open} onOpenChange={setOpen} qrParams={qrParams} />
     </section>

@@ -308,8 +308,7 @@ export function ChatbotPanel({ qrParams }: Props) {
         {step === "welcome" && (
           <Bubble>
             ¡Hola! Soy tu <strong className="text-primary">Asistente HEROICAN</strong>.
-            Te haré unas preguntas rápidas para recomendarte el alimento ideal
-            para tu engreído. 🐾
+            En un minuto te ayudo a encontrar el alimento ideal para tu compañero. 🐾
           </Bubble>
         )}
 

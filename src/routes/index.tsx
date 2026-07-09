@@ -20,10 +20,10 @@ export const Route = createFileRoute("/")({
         content:
           "Escanea el QR del empaque Heroican y recibe una recomendación nutricional para tu perro en menos de 60 segundos.",
       },
-      { property: "og:title", content: "Heroican · Diagnóstico nutricional" },
+      { property: "og:title", content: "Heroican · Diagnóstico nutricional para tu perro" },
       {
         property: "og:description",
-        content: "Experiencia figital desde el empaque. Asistencia por WhatsApp.",
+        content: "Escanea el QR del empaque Heroican y recibe una recomendación nutricional para tu perro en menos de 60 segundos.",
       },
     ],
   }),

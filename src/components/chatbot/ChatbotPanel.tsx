@@ -426,18 +426,39 @@ export function ChatbotPanel({ qrParams }: Props) {
                 Transición gradual. Agua fresca disponible. Si hay síntomas
                 persistentes, consulta a un veterinario.
               </p>
-              <a
-                href={recommended.storeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() =>
-                  track("store_link_clicked", qrParams, { product: recommended.id })
-                }
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 h-11 font-bold text-primary-foreground hover:bg-primary/90 transition"
-              >
-                <ShoppingBag className="h-4 w-4" />
-                Comprar en heroican.com
-              </a>
+              <div className="mt-4 flex flex-col gap-2">
+                <a
+                  href={recommended.storeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() =>
+                    track("store_link_clicked", qrParams, { product: recommended.id })
+                  }
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 h-11 font-bold text-primary-foreground hover:bg-primary/90 transition"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  Comprar por Web
+                </a>
+                <a
+                  href={buildWhatsappUrl({
+                    petName: answers.petName ?? "",
+                    lifeStage: answers.lifeStage ?? "",
+                    breedSize: answers.breedSize ?? "",
+                    recommendedProduct: recommended.name,
+                    leadName: leadForm.tutorName,
+                    city: leadForm.city,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() =>
+                    track("whatsapp_clicked", qrParams, { product: recommended.id })
+                  }
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-accent bg-background px-5 h-11 font-bold text-primary hover:bg-accent/10 transition"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Comprar por WhatsApp
+                </a>
+              </div>
             </div>
           </>
         )}

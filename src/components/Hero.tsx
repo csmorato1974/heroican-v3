@@ -1,7 +1,7 @@
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { QrParams } from "@/types/domain";
-import heroSeq01 from "@/assets/hero-seq-01.png.asset.json";
+import heroReel from "@/assets/hero-reel-profesional.mp4.asset.json";
 
 interface Props {
   qrParams: QrParams;
@@ -52,12 +52,16 @@ export function Hero({ qrParams: _qrParams }: Props) {
             </div>
           </div>
 
-          <div className="mx-auto w-full max-w-[300px] sm:max-w-sm lg:max-w-md">
-            <div className="relative border border-border rounded-2xl overflow-hidden bg-secondary">
-              <img
-                src={heroSeq01.url}
-                alt="HEROICAN — bolsa de alimento premium"
-                className="block h-auto w-full"
+          <div className="mx-auto w-full max-w-full sm:max-w-md lg:max-w-md">
+            <div className="relative border border-border rounded-2xl overflow-hidden bg-secondary aspect-[9/16] sm:aspect-[4/5] lg:aspect-[3/4]">
+              <video
+                src={heroReel.url}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                className="absolute inset-0 h-full w-full object-cover"
               />
               <span className="absolute left-3 top-3 brand-chip">
                 Hecho en Tacna

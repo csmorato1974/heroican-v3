@@ -1,7 +1,7 @@
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { QrParams } from "@/types/domain";
-import heroSeq01 from "@/assets/hero-seq-01.png.asset.json";
+import heroReel from "@/assets/hero-reel-profesional.mp4.asset.json";
 
 interface Props {
   qrParams: QrParams;

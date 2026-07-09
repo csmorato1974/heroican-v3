@@ -1,7 +1,7 @@
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { QrParams } from "@/types/domain";
-import heroVideoReel from "@/assets/hero-video-reel.mp4.asset.json";
+import heroSeq01 from "@/assets/hero-seq-01.png.asset.json";
 
 interface Props {
   qrParams: QrParams;
@@ -54,14 +54,9 @@ export function Hero({ qrParams: _qrParams }: Props) {
 
           <div className="mx-auto w-full max-w-[300px] sm:max-w-sm lg:max-w-md">
             <div className="relative border border-border rounded-2xl overflow-hidden bg-secondary">
-              <video
-                src={heroVideoReel.url}
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="auto"
-                aria-label="HEROICAN — Alimenta tu lealtad"
+              <img
+                src={heroSeq01.url}
+                alt="HEROICAN — bolsa de alimento premium"
                 className="block h-auto w-full"
               />
               <span className="absolute left-3 top-3 brand-chip">

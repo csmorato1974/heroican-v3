@@ -3,18 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, MessageCircle, Check, X, Dog, ShoppingBag } from "lucide-react";
-import { recommend, PRESENTATION_GUIDE } from "@/lib/recommendation";
+import { ArrowLeft, MessageCircle, X, Dog, Gift } from "lucide-react";
 import { track, getSessionId } from "@/lib/tracker";
 import { saveLead } from "@/lib/leads";
-import { buildWhatsappUrl } from "@/lib/whatsapp";
+import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
 import { leadSchema } from "@/lib/validators";
 import {
-  NEEDS,
-  type AgeRange,
   type BreedSize,
   type LifeStage,
-  type Need,
   type QrParams,
   type SessionAnswers,
 } from "@/types/domain";
@@ -24,81 +20,90 @@ type Step =
   | "petName"
   | "lifeStage"
   | "breedSize"
-  | "age"
-  | "needs"
-  | "result"
-  | "lead"
-  | "whatsapp";
+  | "tutor"
+  | "consents"
+  | "success";
 
 interface Props {
   qrParams: QrParams;
 }
-
-const AGES: AgeRange[] = [
-  "Menos de 1 año",
-  "1 a 7 años",
-  "Más de 7 años",
-  "No estoy seguro",
-];
 
 const ORDER: Step[] = [
   "welcome",
   "petName",
   "lifeStage",
   "breedSize",
-  "age",
-  "needs",
-  "result",
-  "lead",
-  "whatsapp",
+  "tutor",
+  "consents",
+  "success",
 ];
 
 const SESSION_KEY = "heroican.session";
 const MINIMIZED_KEY = "heroican.panel.minimized";
 
+interface LeadForm {
+  tutorName: string;
+  phone: string;
+  city: string;
+  consentWhatsApp: boolean;
+  consentTerms: boolean;
+  consentData: boolean;
+  consentLocation: boolean;
+}
+
+const DEFAULT_LEAD_FORM: LeadForm = {
+  tutorName: "",
+  phone: "",
+  city: "",
+  consentWhatsApp: false,
+  consentTerms: false,
+  consentData: false,
+  consentLocation: false,
+};
+
 interface Persisted {
   step: Step;
   answers: SessionAnswers;
-  leadForm: {
-    tutorName: string;
-    phone: string;
-    city: string;
-    consentWhatsApp: boolean;
-    consentLocation: boolean;
-  };
+  leadForm: LeadForm;
 }
 
-function loadPersisted(): Persisted | null {
-  if (typeof window === "undefined") return null;
+function loadPersisted(defaultCity: string): Persisted {
+  const base: Persisted = {
+    step: "welcome",
+    answers: {},
+    leadForm: { ...DEFAULT_LEAD_FORM, city: defaultCity },
+  };
+  if (typeof window === "undefined") return base;
   try {
     const raw = window.localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as Persisted) : null;
+    if (!raw) return base;
+    const parsed = JSON.parse(raw) as Partial<Persisted>;
+    // Merge con defaults: si faltan campos nuevos en sesiones antiguas,
+    // se completan en lugar de descartar todo el blob.
+    const validStep = (ORDER as string[]).includes(parsed.step as string)
+      ? (parsed.step as Step)
+      : "welcome";
+    return {
+      step: validStep,
+      answers: { ...base.answers, ...(parsed.answers ?? {}) },
+      leadForm: { ...base.leadForm, ...(parsed.leadForm ?? {}) },
+    };
   } catch {
-    return null;
+    return base;
   }
 }
 
 export function ChatbotPanel({ qrParams }: Props) {
-  const persisted = useMemo(() => loadPersisted(), []);
-  const [step, setStep] = useState<Step>(persisted?.step ?? "welcome");
-  const [answers, setAnswers] = useState<SessionAnswers>(persisted?.answers ?? {});
-  const [leadForm, setLeadForm] = useState(
-    persisted?.leadForm ?? {
-      tutorName: "",
-      phone: "",
-      city: qrParams.ciudad_url ?? "",
-      consentWhatsApp: false,
-      consentLocation: false,
-    },
+  const initial = useMemo(
+    () => loadPersisted(qrParams.ciudad_url ?? ""),
+    [qrParams.ciudad_url],
   );
+  const [step, setStep] = useState<Step>(initial.step);
+  const [answers, setAnswers] = useState<SessionAnswers>(initial.answers);
+  const [leadForm, setLeadForm] = useState<LeadForm>(initial.leadForm);
   const [minimized, setMinimized] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>();
-
-  const recommended = useMemo(() => {
-    if (!answers.lifeStage || !answers.breedSize) return null;
-    return recommend(answers.lifeStage, answers.breedSize);
-  }, [answers.lifeStage, answers.breedSize]);
 
   // Persist
   useEffect(() => {
@@ -112,7 +117,6 @@ export function ChatbotPanel({ qrParams }: Props) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(MINIMIZED_KEY);
-    // Default to minimized (floating button) unless user explicitly opened it
     setMinimized(stored !== "0");
     track("landing_panel_mounted", qrParams);
   }, [qrParams]);
@@ -121,6 +125,17 @@ export function ChatbotPanel({ qrParams }: Props) {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(MINIMIZED_KEY, minimized ? "1" : "0");
   }, [minimized]);
+
+  // Apertura desde el hero u otros CTAs
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      setMinimized(false);
+      track("panel_opened_external", qrParams);
+    };
+    window.addEventListener("heroican:open-chatbot", handler);
+    return () => window.removeEventListener("heroican:open-chatbot", handler);
+  }, [qrParams]);
 
   const goto = (s: Step) => setStep(s);
   const answer = (
@@ -131,57 +146,9 @@ export function ChatbotPanel({ qrParams }: Props) {
     track("question_answered", qrParams, { field, value });
   };
 
-  const startQuiz = () => {
-    track("quiz_started", qrParams);
+  const startFlow = () => {
+    track("quiz_started", qrParams, { flow: "registration" });
     goto("petName");
-  };
-
-  const onResultEnter = () => {
-    if (recommended) {
-      track("recommendation_generated", qrParams, { product: recommended.id });
-    }
-  };
-
-  const submitLead = () => {
-    const parsed = leadSchema.safeParse(leadForm);
-    if (!parsed.success) {
-      const e: Record<string, string> = {};
-      parsed.error.issues.forEach((i) => {
-        e[i.path[0] as string] = i.message;
-      });
-      setErrors(e);
-      return;
-    }
-    setErrors({});
-    if (!recommended || !answers.lifeStage || !answers.breedSize || !answers.petName)
-      return;
-
-    const leadId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2);
-
-    saveLead({
-      id: leadId,
-      sessionId: getSessionId(),
-      tutorName: leadForm.tutorName.trim(),
-      phone: leadForm.phone.trim(),
-      city: leadForm.city.trim(),
-      petName: answers.petName,
-      lifeStage: answers.lifeStage,
-      breedSize: answers.breedSize,
-      ageRange: answers.ageRange,
-      needs: answers.needs ?? [],
-      recommendedProduct: recommended.name,
-      consentWhatsApp: true,
-      consentLocation: !!leadForm.consentLocation,
-      locationLat: coords?.lat,
-      locationLng: coords?.lng,
-      createdAt: new Date().toISOString(),
-      qrParams,
-    });
-    track("lead_submitted", qrParams, { product: recommended.id });
-    goto("whatsapp");
   };
 
   const requestLocation = (checked: boolean) => {
@@ -199,18 +166,57 @@ export function ChatbotPanel({ qrParams }: Props) {
     );
   };
 
-  const openWhatsapp = () => {
-    if (!recommended || !answers.petName || !answers.lifeStage || !answers.breedSize)
+  const submitRegistration = () => {
+    const parsed = leadSchema.safeParse(leadForm);
+    if (!parsed.success) {
+      const e: Record<string, string> = {};
+      parsed.error.issues.forEach((i) => {
+        e[i.path[0] as string] = i.message;
+      });
+      setErrors(e);
       return;
-    const url = buildWhatsappUrl({
+    }
+    setErrors({});
+    if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;
+
+    const leadId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
+
+    saveLead({
+      id: leadId,
+      sessionId: getSessionId(),
+      tutorName: leadForm.tutorName.trim(),
+      phone: leadForm.phone.trim(),
+      city: leadForm.city.trim(),
       petName: answers.petName,
       lifeStage: answers.lifeStage,
       breedSize: answers.breedSize,
-      recommendedProduct: recommended.name,
-      leadName: leadForm.tutorName,
-      city: leadForm.city,
+      needs: [],
+      recommendedProduct: "Registro promocional 10%",
+      consentWhatsApp: true,
+      consentLocation: !!leadForm.consentLocation,
+      locationLat: coords?.lat,
+      locationLng: coords?.lng,
+      createdAt: new Date().toISOString(),
+      qrParams,
     });
-    track("whatsapp_clicked", qrParams, { product: recommended.id });
+    track("lead_submitted", qrParams, { flow: "registration" });
+    goto("success");
+  };
+
+  const openWhatsapp = () => {
+    if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;
+    const url = buildRegistrationWhatsappUrl({
+      tutorName: leadForm.tutorName,
+      phone: leadForm.phone,
+      city: leadForm.city,
+      petName: answers.petName,
+      lifeStage: answers.lifeStage,
+      breedSize: answers.breedSize,
+    });
+    track("whatsapp_clicked", qrParams, { flow: "registration" });
     track("session_completed", qrParams);
     window.open(url, "_blank", "noopener");
   };
@@ -227,24 +233,24 @@ export function ChatbotPanel({ qrParams }: Props) {
           setMinimized(false);
           track("panel_restored", qrParams);
         }}
-        aria-label="Abrir asistente HEROICAN"
+        aria-label="Registrar mi mascota y obtener 10% de descuento"
         className="fixed bottom-5 right-5 z-50 group flex items-center gap-3"
       >
-        {/* Tooltip / hint bubble */}
         <span className="hidden sm:flex items-center rounded-2xl rounded-br-sm border border-border bg-card/95 backdrop-blur px-3 py-2 text-xs font-semibold text-foreground shadow-md group-hover:-translate-x-0.5 transition-transform">
           {started
-            ? `Continuar diagnóstico · ${progressPct}%`
-            : "Hola, soy HEROICAN. Encontremos su alimento."}
+            ? `Continuar registro · ${progressPct}%`
+            : "Regístrala y obtén 10% dto."}
         </span>
-        <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg  group-hover:scale-105 transition-transform">
+        <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg group-hover:scale-105 transition-transform">
           <Dog className="h-8 w-8" strokeWidth={2.2} />
-          {started && (
+          {started ? (
             <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground border-2 border-background">
               {progressPct}%
             </span>
-          )}
-          {!started && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 rounded-full bg-accent border-2 border-background animate-pulse" />
+          ) : (
+            <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground border-2 border-background">
+              10%
+            </span>
           )}
         </span>
       </button>
@@ -260,7 +266,7 @@ export function ChatbotPanel({ qrParams }: Props) {
     >
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-3 bg-secondary/50">
-        {step !== "welcome" && step !== "whatsapp" && (
+        {step !== "welcome" && step !== "success" && (
           <button
             aria-label="Atrás"
             onClick={() => {
@@ -272,7 +278,7 @@ export function ChatbotPanel({ qrParams }: Props) {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground font-display ">
+        <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground font-display">
           H
         </span>
         <div className="flex-1 min-w-0">
@@ -280,7 +286,7 @@ export function ChatbotPanel({ qrParams }: Props) {
             Asistente HEROICAN
           </p>
           <p className="text-xs text-muted-foreground truncate">
-            Alimenta tu lealtad
+            10% dto. por primer registro
           </p>
         </div>
         <button
@@ -299,22 +305,40 @@ export function ChatbotPanel({ qrParams }: Props) {
       <div className="h-0.5 w-full bg-border">
         <div
           className="h-full bg-accent transition-all"
-          style={{ width: `${progressPct}%`,  }}
+          style={{ width: `${progressPct}%` }}
         />
       </div>
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
         {step === "welcome" && (
-          <Bubble>
-            ¡Hola! Soy tu <strong className="text-primary">Asistente HEROICAN</strong>.
-            En un minuto te ayudo a encontrar el alimento ideal para tu compañero. 🐾
-          </Bubble>
+          <>
+            <Bubble>
+              ¡Hola! Aquí puedes{" "}
+              <strong className="text-primary">registrar a tu mascota</strong> y
+              recibir{" "}
+              <strong className="text-primary">10% de descuento</strong> por tu
+              primer registro. 🐾
+            </Bubble>
+            <div className="rounded-2xl border border-accent/40 bg-accent/10 p-3 text-xs text-foreground/80">
+              <p className="flex items-center gap-2 font-bold text-primary">
+                <Gift className="h-4 w-4" /> Beneficio de bienvenida
+              </p>
+              <p className="mt-1">
+                Tomamos 4 datos rápidos, generamos tu cupón y te derivamos por
+                WhatsApp al equipo Heroican.
+              </p>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                ¿Buscas orientación sobre qué alimento darle? Cierra este panel
+                y usa la experiencia con cámara más abajo.
+              </p>
+            </div>
+          </>
         )}
 
         {step === "petName" && (
           <>
-            <Bubble>¿Cómo se llama tu engreído?</Bubble>
+            <Bubble>¿Cómo se llama tu mascota?</Bubble>
             <Input
               autoFocus
               placeholder="Nombre de tu mascota"
@@ -348,124 +372,11 @@ export function ChatbotPanel({ qrParams }: Props) {
           </>
         )}
 
-        {step === "age" && (
-          <>
-            <Bubble>¿Qué edad tiene? (opcional)</Bubble>
-            <OptionGrid
-              options={AGES as unknown as string[]}
-              value={answers.ageRange}
-              onSelect={(v) => answer("ageRange", v as AgeRange)}
-            />
-          </>
-        )}
-
-        {step === "needs" && (
-          <>
-            <Bubble>¿Cuál es tu necesidad principal? Puedes elegir varias.</Bubble>
-            <div className="grid gap-2">
-              {NEEDS.map((n) => {
-                const checked = answers.needs?.includes(n) ?? false;
-                return (
-                  <button
-                    key={n}
-                    onClick={() => {
-                      const cur = answers.needs ?? [];
-                      const next = checked
-                        ? cur.filter((x) => x !== n)
-                        : [...cur, n];
-                      answer("needs", next as Need[]);
-                    }}
-                    className={`text-left rounded-2xl border px-4 py-3 transition text-sm font-semibold ${
-                      checked
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border bg-card hover:bg-secondary"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between">
-                      <span>{n}</span>
-                      {checked && <Check className="h-4 w-4 text-primary" />}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {step === "result" && recommended && (
+        {step === "tutor" && (
           <>
             <Bubble>
-              ¡Listo! Para <strong>{answers.petName}</strong> recomendamos:
+              Para preparar tu cupón, necesitamos tus datos de contacto.
             </Bubble>
-            <div className="brand-card rounded-2xl p-4">
-              <p className="font-display text-lg text-primary">
-                {recommended.name}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                {recommended.lifeStage} · {recommended.breedSize}
-              </p>
-              <ul className="mt-4 space-y-2 text-sm">
-                {recommended.presentations.map((p) => (
-                  <li
-                    key={p.sizeKg}
-                    className="flex justify-between border-b border-dashed border-border pb-1"
-                  >
-                    <span>
-                      <strong className="text-primary">{p.sizeKg} kg</strong>{" "}
-                      <span className="text-muted-foreground">
-                        — S/ {p.pricePen}
-                      </span>
-                    </span>
-                    <span className="text-muted-foreground text-[10px]">
-                      {PRESENTATION_GUIDE[p.sizeKg]}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 text-[11px] text-muted-foreground">
-                Transición gradual. Agua fresca disponible. Si hay síntomas
-                persistentes, consulta a un veterinario.
-              </p>
-              <div className="mt-4 flex flex-col gap-2">
-                <a
-                  href={recommended.storeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() =>
-                    track("store_link_clicked", qrParams, { product: recommended.id })
-                  }
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 h-11 font-bold text-primary-foreground hover:bg-primary/90 transition"
-                >
-                  <ShoppingBag className="h-4 w-4" />
-                  Comprar por Web
-                </a>
-                <a
-                  href={buildWhatsappUrl({
-                    petName: answers.petName ?? "",
-                    lifeStage: answers.lifeStage ?? "",
-                    breedSize: answers.breedSize ?? "",
-                    recommendedProduct: recommended.name,
-                    leadName: leadForm.tutorName,
-                    city: leadForm.city,
-                  })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() =>
-                    track("whatsapp_clicked", qrParams, { product: recommended.id })
-                  }
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-accent bg-background px-5 h-11 font-bold text-primary hover:bg-accent/10 transition"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Comprar por WhatsApp
-                </a>
-              </div>
-            </div>
-          </>
-        )}
-
-        {step === "lead" && (
-          <>
-            <Bubble>Déjanos tus datos para asesoría por WhatsApp.</Bubble>
             <div className="space-y-3">
               <Field label="Nombre" error={errors.tutorName}>
                 <Input
@@ -495,6 +406,14 @@ export function ChatbotPanel({ qrParams }: Props) {
                   placeholder="Tu ciudad"
                 />
               </Field>
+            </div>
+          </>
+        )}
+
+        {step === "consents" && (
+          <>
+            <Bubble>Un último paso antes de generar tu cupón 🎁</Bubble>
+            <div className="space-y-2">
               <label className="flex items-start gap-3 rounded-md border border-border bg-card p-3">
                 <Checkbox
                   checked={leadForm.consentWhatsApp}
@@ -503,7 +422,8 @@ export function ChatbotPanel({ qrParams }: Props) {
                   }
                 />
                 <span className="text-xs">
-                  Acepto que Heroican me contacte por WhatsApp.
+                  Acepto que Heroican me contacte por WhatsApp para enviarme mi
+                  cupón y novedades relacionadas.
                 </span>
               </label>
               {errors.consentWhatsApp && (
@@ -511,7 +431,56 @@ export function ChatbotPanel({ qrParams }: Props) {
                   {errors.consentWhatsApp}
                 </p>
               )}
+
               <label className="flex items-start gap-3 rounded-md border border-border bg-card p-3">
+                <Checkbox
+                  checked={leadForm.consentTerms}
+                  onCheckedChange={(v) =>
+                    setLeadForm((f) => ({ ...f, consentTerms: v === true }))
+                  }
+                />
+                <span className="text-xs">
+                  Acepto los{" "}
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline text-primary"
+                  >
+                    términos y condiciones
+                  </a>{" "}
+                  de la promoción.
+                </span>
+              </label>
+              {errors.consentTerms && (
+                <p className="text-xs text-destructive">{errors.consentTerms}</p>
+              )}
+
+              <label className="flex items-start gap-3 rounded-md border border-border bg-card p-3">
+                <Checkbox
+                  checked={leadForm.consentData}
+                  onCheckedChange={(v) =>
+                    setLeadForm((f) => ({ ...f, consentData: v === true }))
+                  }
+                />
+                <span className="text-xs">
+                  Acepto el tratamiento de mis datos personales según la{" "}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline text-primary"
+                  >
+                    política de privacidad
+                  </a>
+                  .
+                </span>
+              </label>
+              {errors.consentData && (
+                <p className="text-xs text-destructive">{errors.consentData}</p>
+              )}
+
+              <label className="flex items-start gap-3 rounded-md border border-dashed border-border bg-secondary/40 p-3">
                 <Checkbox
                   checked={leadForm.consentLocation}
                   onCheckedChange={(v) => requestLocation(v === true)}
@@ -521,19 +490,31 @@ export function ChatbotPanel({ qrParams }: Props) {
                   demanda.
                 </span>
               </label>
+
+              <p className="text-[10px] text-muted-foreground">
+                Promoción sujeta a términos y condiciones. Válida solo para
+                primer registro por mascota.
+              </p>
             </div>
           </>
         )}
 
-        {step === "whatsapp" && recommended && (
+        {step === "success" && (
           <>
             <Bubble>
-              🎉 ¡Todo listo! Estás a un mensaje de recibir tu asesoría.
+              🎉 ¡Listo, <strong>{answers.petName}</strong> quedó registrada!
+              Tu <strong className="text-primary">10% de descuento</strong> te
+              espera por WhatsApp.
             </Bubble>
-            <div className="brand-card rounded-md p-4 text-sm">
-              Te derivaremos al WhatsApp comercial con la información de{" "}
-              <strong>{answers.petName}</strong> y la recomendación de{" "}
-              <strong className="text-accent">{recommended.name}</strong>.
+            <div className="brand-card rounded-md p-4 text-sm space-y-2">
+              <p>
+                Presiona el botón para abrir WhatsApp con el equipo Heroican y
+                canjear tu cupón de bienvenida.
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                ¿Quieres además orientación sobre qué alimento darle? Cierra
+                este panel y usa la experiencia con cámara.
+              </p>
             </div>
           </>
         )}
@@ -544,15 +525,14 @@ export function ChatbotPanel({ qrParams }: Props) {
         <FooterActions
           step={step}
           answers={answers}
-          onStart={startQuiz}
+          leadForm={leadForm}
+          onStart={startFlow}
           onNext={(next) => {
-            if (next === "lead") track("lead_form_viewed", qrParams);
-            if (next === "result") onResultEnter();
+            if (next === "consents") track("lead_form_viewed", qrParams);
             goto(next);
           }}
-          onSubmitLead={submitLead}
+          onSubmitRegistration={submitRegistration}
           onOpenWhatsapp={openWhatsapp}
-          consentWhatsApp={leadForm.consentWhatsApp}
         />
       </div>
     </aside>
@@ -606,9 +586,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-bold text-muted-foreground">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold text-muted-foreground">{label}</Label>
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
@@ -618,19 +596,19 @@ function Field({
 function FooterActions({
   step,
   answers,
+  leadForm,
   onStart,
   onNext,
-  onSubmitLead,
+  onSubmitRegistration,
   onOpenWhatsapp,
-  consentWhatsApp,
 }: {
   step: Step;
   answers: SessionAnswers;
+  leadForm: LeadForm;
   onStart: () => void;
   onNext: (s: Step) => void;
-  onSubmitLead: () => void;
+  onSubmitRegistration: () => void;
   onOpenWhatsapp: () => void;
-  consentWhatsApp: boolean;
 }) {
   const cta =
     "w-full rounded-full h-11 font-bold bg-primary text-primary-foreground hover:bg-primary/90";
@@ -638,7 +616,7 @@ function FooterActions({
   if (step === "welcome")
     return (
       <Button className={cta} onClick={onStart}>
-        ¡Empecemos! →
+        Registrar y obtener 10% dto. →
       </Button>
     );
   if (step === "petName")
@@ -666,60 +644,40 @@ function FooterActions({
       <Button
         className={cta}
         disabled={!answers.breedSize}
-        onClick={() => onNext("age")}
+        onClick={() => onNext("tutor")}
       >
         Continuar ▸
       </Button>
     );
-  if (step === "age")
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          className="flex-1 rounded-full h-11 font-bold"
-          onClick={() => onNext("needs")}
-        >
-          Omitir
-        </Button>
-        <Button
-          className={cta + " flex-1"}
-          disabled={!answers.ageRange}
-          onClick={() => onNext("needs")}
-        >
-          Continuar ▸
-        </Button>
-      </div>
-    );
-  if (step === "needs")
+  if (step === "tutor") {
+    const ready =
+      leadForm.tutorName.trim().length >= 2 &&
+      leadForm.phone.trim().length >= 8 &&
+      leadForm.city.trim().length >= 2;
     return (
       <Button
         className={cta}
-        disabled={!(answers.needs && answers.needs.length > 0)}
-        onClick={() => onNext("result")}
+        disabled={!ready}
+        onClick={() => onNext("consents")}
       >
-        Ver mi recomendación →
+        Continuar ▸
       </Button>
     );
-  if (step === "result")
+  }
+  if (step === "consents")
     return (
-      <Button className={cta} onClick={() => onNext("lead")}>
-        Continuar a asesoría ▸
+      <Button className={cta} onClick={onSubmitRegistration}>
+        Generar mi 10% de descuento →
       </Button>
     );
-  if (step === "lead")
-    return (
-      <Button className={cta} onClick={onSubmitLead}>
-        Guardar y continuar ▸
-      </Button>
-    );
-  if (step === "whatsapp")
+  if (step === "success")
     return (
       <Button
         className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
-        disabled={!consentWhatsApp}
         onClick={onOpenWhatsapp}
       >
-        <MessageCircle className="mr-2 h-4 w-4" /> Abrir WhatsApp
+        <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
+        WhatsApp
       </Button>
     );
   return null;

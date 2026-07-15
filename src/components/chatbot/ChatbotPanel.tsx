@@ -7,7 +7,7 @@ import { ArrowLeft, MessageCircle, X, Dog, Gift } from "lucide-react";
 import { track, getSessionId } from "@/lib/tracker";
 import { saveLead } from "@/lib/leads";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
-import { leadSchema } from "@/lib/validators";
+import { leadSchema, normalizePhoneInput } from "@/lib/validators";
 import {
   type BreedSize,
   type LifeStage,
@@ -176,7 +176,13 @@ export function ChatbotPanel({ qrParams }: Props) {
   };
 
   const submitRegistration = () => {
-    const parsed = leadSchema.safeParse(leadForm);
+    const formForSubmit = {
+      ...leadForm,
+      tutorName: leadForm.tutorName.trim(),
+      phone: normalizePhoneInput(leadForm.phone),
+      city: leadForm.city.trim(),
+    };
+    const parsed = leadSchema.safeParse(formForSubmit);
     if (!parsed.success) {
       const e: Record<string, string> = {};
       parsed.error.issues.forEach((i) => {
@@ -188,58 +194,61 @@ export function ChatbotPanel({ qrParams }: Props) {
     setErrors({});
     if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;
 
+    const url = buildRegistrationWhatsappUrl({
+      tutorName: parsed.data.tutorName,
+      phone: parsed.data.phone,
+      city: parsed.data.city,
+      petName: answers.petName,
+      lifeStage: answers.lifeStage,
+      breedSize: answers.breedSize,
+    });
+
     const leadId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : Math.random().toString(36).slice(2);
 
-    saveLead({
-      id: leadId,
-      sessionId: getSessionId(),
-      tutorName: leadForm.tutorName.trim(),
-      phone: leadForm.phone.trim(),
-      city: leadForm.city.trim(),
-      petName: answers.petName,
-      lifeStage: answers.lifeStage,
-      breedSize: answers.breedSize,
-      needs: [],
-      recommendedProduct: "Registro promocional 10%",
-      consentWhatsApp: true,
-      consentLocation: !!leadForm.consentLocation,
-      locationLat: coords?.lat,
-      locationLng: coords?.lng,
-      createdAt: new Date().toISOString(),
-      qrParams,
-    });
-    track("lead_submitted", qrParams, { flow: "registration" });
-
-    const url = buildRegistrationWhatsappUrl({
-      tutorName: leadForm.tutorName,
-      phone: leadForm.phone,
-      city: leadForm.city,
-      petName: answers.petName,
-      lifeStage: answers.lifeStage,
-      breedSize: answers.breedSize,
-    });
-    track("whatsapp_clicked", qrParams, { flow: "registration" });
-    track("session_completed", qrParams);
-    window.open(url, "_blank", "noopener");
+    try {
+      saveLead({
+        id: leadId,
+        sessionId: getSessionId(),
+        tutorName: parsed.data.tutorName,
+        phone: parsed.data.phone,
+        city: parsed.data.city,
+        petName: answers.petName,
+        lifeStage: answers.lifeStage,
+        breedSize: answers.breedSize,
+        needs: [],
+        recommendedProduct: "Registro promocional 10%",
+        consentWhatsApp: true,
+        consentLocation: !!leadForm.consentLocation,
+        locationLat: coords?.lat,
+        locationLng: coords?.lng,
+        createdAt: new Date().toISOString(),
+        qrParams,
+      });
+      track("lead_submitted", qrParams, { flow: "registration" });
+      track("whatsapp_clicked", qrParams, { flow: "registration" });
+      track("session_completed", qrParams);
+    } finally {
+      openWhatsappUrl(url);
+    }
     goto("success");
   };
 
   const openWhatsapp = () => {
     if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;
     const url = buildRegistrationWhatsappUrl({
-      tutorName: leadForm.tutorName,
-      phone: leadForm.phone,
-      city: leadForm.city,
+      tutorName: leadForm.tutorName.trim(),
+      phone: normalizePhoneInput(leadForm.phone),
+      city: leadForm.city.trim(),
       petName: answers.petName,
       lifeStage: answers.lifeStage,
       breedSize: answers.breedSize,
     });
     track("whatsapp_clicked", qrParams, { flow: "registration" });
     track("session_completed", qrParams);
-    window.open(url, "_blank", "noopener");
+    openWhatsappUrl(url);
   };
 
   const progressIndex = ORDER.indexOf(step);
@@ -558,6 +567,15 @@ export function ChatbotPanel({ qrParams }: Props) {
       </div>
     </aside>
   );
+}
+
+function openWhatsappUrl(url: string) {
+  const opened = window.open(url, "_blank");
+  if (opened) {
+    opened.opener = null;
+    return;
+  }
+  window.location.assign(url);
 }
 
 function Bubble({ children }: { children: React.ReactNode }) {

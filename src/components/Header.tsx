@@ -13,7 +13,7 @@ export function Header() {
           />
         </a>
         <a
-          href="https://wa.me/59161212107"
+          href="https://wa.me/51942799091"
           target="_blank"
           rel="noopener noreferrer"
           className="hidden sm:inline-flex items-center text-xs font-semibold italic text-accent hover:text-primary transition-colors"

@@ -15,6 +15,12 @@ export const leadSchema = z.object({
   consentWhatsApp: z.boolean().refine((v) => v === true, {
     message: "Necesitamos tu consentimiento para contactarte",
   }),
+  consentTerms: z.boolean().refine((v) => v === true, {
+    message: "Debes aceptar los términos y condiciones",
+  }),
+  consentData: z.boolean().refine((v) => v === true, {
+    message: "Debes aceptar el tratamiento de datos",
+  }),
   consentLocation: z.boolean().optional(),
 });
 

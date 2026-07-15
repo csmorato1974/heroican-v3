@@ -1,4 +1,4 @@
-import { Camera } from "lucide-react";
+import { Camera, MessageCircle, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { QrParams } from "@/types/domain";
 import heroReel from "@/assets/hero-reel-profesional.mp4.asset.json";
@@ -7,13 +7,32 @@ interface Props {
   qrParams: QrParams;
 }
 
+function openChatbot(e: React.MouseEvent) {
+  e.preventDefault();
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("heroican:open-chatbot"));
+}
+
 export function Hero({ qrParams: _qrParams }: Props) {
   return (
     <section className="relative bg-background">
       <div className="mx-auto max-w-6xl px-4 pt-12 pb-16 sm:pt-20 sm:pb-24">
         <div className="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:gap-16">
           <div>
-            <span className="brand-chip">Nutrición premium · Tacna</span>
+            {/* Pre-CTA visible y clickeable → cámara */}
+            <a
+              href="#foto-mascota"
+              className="group inline-flex items-center gap-2 rounded-full border-2 border-accent bg-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-wide text-primary transition hover:bg-accent hover:text-accent-foreground"
+            >
+              <ScanLine className="h-4 w-4" />
+              Escanea a tu mascota con la cámara
+              <span
+                aria-hidden
+                className="transition-transform group-hover:translate-x-0.5"
+              >
+                →
+              </span>
+            </a>
 
             <h1 className="mt-6 font-display font-black uppercase tracking-tight text-5xl leading-[0.95] sm:text-7xl">
               Alimenta
@@ -22,34 +41,43 @@ export function Hero({ qrParams: _qrParams }: Props) {
             </h1>
 
             <p className="italic-sub mt-6 max-w-lg text-lg sm:text-xl">
-              Nutrición honesta hecha en Tacna, con el cariño que tu perro merece.
+              Registra a tu mascota y llévate{" "}
+              <strong className="not-italic text-primary">
+                10% de descuento
+              </strong>{" "}
+              por primer registro.
             </p>
 
             <p className="mt-4 max-w-lg text-base text-foreground/80">
-              Descubre en menos de 60 segundos el HEROICAN ideal para tu compañero:
-              fórmulas balanceadas por etapa de vida y tamaño de raza, con
-              ingredientes nobles y precio justo.
+              ¿Aún no sabes qué alimento le conviene? Usa nuestra experiencia
+              con cámara: te orienta en segundos según los rasgos de tu perro.
+              Dos caminos, un mismo cariño.
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-5">
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Button
+                onClick={openChatbot}
+                className="h-12 rounded-md bg-primary px-6 font-bold uppercase tracking-wide text-primary-foreground hover:bg-primary/90"
+              >
+                <MessageCircle className="mr-2 h-5 w-5" />
+                Registrar a mi mascota
+              </Button>
               <Button
                 asChild
-                className="h-12 rounded-md bg-primary px-6 font-bold uppercase tracking-wide text-primary-foreground hover:bg-primary/90"
+                variant="outline"
+                className="h-12 rounded-md border-2 border-accent bg-transparent px-6 font-bold uppercase tracking-wide text-primary hover:bg-accent/10"
               >
                 <a href="#foto-mascota">
                   <Camera className="mr-2 h-5 w-5" />
-                  Descubre su alimento ideal
+                  Orientarme con cámara
                 </a>
               </Button>
-              <a
-                href="https://wa.me/59161212107"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-semibold italic text-accent underline decoration-accent/60 underline-offset-4 hover:text-primary hover:decoration-primary/60"
-              >
-                Habla con nosotros por WhatsApp
-              </a>
             </div>
+
+            <p className="mt-4 text-xs text-muted-foreground">
+              Chatbot para registro promocional · Cámara para orientación de
+              alimento.
+            </p>
           </div>
 
           <div className="mx-auto w-full max-w-full sm:max-w-md lg:max-w-md">

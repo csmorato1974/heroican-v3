@@ -94,16 +94,25 @@ function loadPersisted(defaultCity: string): Persisted {
 }
 
 export function ChatbotPanel({ qrParams }: Props) {
-  const initial = useMemo(
-    () => loadPersisted(qrParams.ciudad_url ?? ""),
-    [qrParams.ciudad_url],
-  );
-  const [step, setStep] = useState<Step>(initial.step);
-  const [answers, setAnswers] = useState<SessionAnswers>(initial.answers);
-  const [leadForm, setLeadForm] = useState<LeadForm>(initial.leadForm);
+  const [step, setStep] = useState<Step>("welcome");
+  const [answers, setAnswers] = useState<SessionAnswers>({});
+  const [leadForm, setLeadForm] = useState<LeadForm>(() => ({
+    ...DEFAULT_LEAD_FORM,
+    city: qrParams.ciudad_url ?? "",
+  }));
   const [minimized, setMinimized] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>();
+
+  // Hydrate persisted state client-side only (avoids SSR mismatch)
+  useEffect(() => {
+    const p = loadPersisted(qrParams.ciudad_url ?? "");
+    setStep(p.step);
+    setAnswers(p.answers);
+    setLeadForm(p.leadForm);
+    setHydrated(true);
+  }, [qrParams.ciudad_url]);
 
   // Persist
   useEffect(() => {

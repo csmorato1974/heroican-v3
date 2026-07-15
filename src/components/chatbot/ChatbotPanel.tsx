@@ -7,7 +7,7 @@ import { ArrowLeft, MessageCircle, X, Dog, Gift } from "lucide-react";
 import { track, getSessionId } from "@/lib/tracker";
 import { saveLead } from "@/lib/leads";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
-import { leadSchema } from "@/lib/validators";
+import { leadSchema, normalizePhoneInput } from "@/lib/validators";
 import {
   type BreedSize,
   type LifeStage,
@@ -175,8 +175,14 @@ export function ChatbotPanel({ qrParams }: Props) {
     );
   };
 
-  const submitRegistration = () => {
-    const parsed = leadSchema.safeParse(leadForm);
+  const submitRegistration = (navigateToWhatsapp = true) => {
+    const formForSubmit = {
+      ...leadForm,
+      tutorName: leadForm.tutorName.trim(),
+      phone: normalizePhoneInput(leadForm.phone),
+      city: leadForm.city.trim(),
+    };
+    const parsed = leadSchema.safeParse(formForSubmit);
     if (!parsed.success) {
       const e: Record<string, string> = {};
       parsed.error.issues.forEach((i) => {
@@ -188,58 +194,70 @@ export function ChatbotPanel({ qrParams }: Props) {
     setErrors({});
     if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;
 
+    const url = buildRegistrationWhatsappUrl({
+      tutorName: parsed.data.tutorName,
+      phone: parsed.data.phone,
+      city: parsed.data.city,
+      petName: answers.petName,
+      lifeStage: answers.lifeStage,
+      breedSize: answers.breedSize,
+    });
+
     const leadId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : Math.random().toString(36).slice(2);
 
-    saveLead({
-      id: leadId,
-      sessionId: getSessionId(),
-      tutorName: leadForm.tutorName.trim(),
-      phone: leadForm.phone.trim(),
-      city: leadForm.city.trim(),
-      petName: answers.petName,
-      lifeStage: answers.lifeStage,
-      breedSize: answers.breedSize,
-      needs: [],
-      recommendedProduct: "Registro promocional 10%",
-      consentWhatsApp: true,
-      consentLocation: !!leadForm.consentLocation,
-      locationLat: coords?.lat,
-      locationLng: coords?.lng,
-      createdAt: new Date().toISOString(),
-      qrParams,
-    });
-    track("lead_submitted", qrParams, { flow: "registration" });
+    try {
+      saveLead({
+        id: leadId,
+        sessionId: getSessionId(),
+        tutorName: parsed.data.tutorName,
+        phone: parsed.data.phone,
+        city: parsed.data.city,
+        petName: answers.petName,
+        lifeStage: answers.lifeStage,
+        breedSize: answers.breedSize,
+        needs: [],
+        recommendedProduct: "Registro promocional 10%",
+        consentWhatsApp: true,
+        consentLocation: !!leadForm.consentLocation,
+        locationLat: coords?.lat,
+        locationLng: coords?.lng,
+        createdAt: new Date().toISOString(),
+        qrParams,
+      });
+    } catch {
+      // WhatsApp debe abrir aunque falle el guardado local.
+    }
 
-    const url = buildRegistrationWhatsappUrl({
-      tutorName: leadForm.tutorName,
-      phone: leadForm.phone,
-      city: leadForm.city,
-      petName: answers.petName,
-      lifeStage: answers.lifeStage,
-      breedSize: answers.breedSize,
-    });
-    track("whatsapp_clicked", qrParams, { flow: "registration" });
-    track("session_completed", qrParams);
-    window.open(url, "_blank", "noopener");
+    try {
+      track("lead_submitted", qrParams, { flow: "registration" });
+      track("whatsapp_clicked", qrParams, { flow: "registration" });
+      track("session_completed", qrParams);
+    } catch {
+      // El tracking no debe bloquear la solicitud por WhatsApp.
+    }
+
+    if (navigateToWhatsapp) {
+      openWhatsappUrl(url);
+    }
     goto("success");
   };
 
   const openWhatsapp = () => {
     if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;
     const url = buildRegistrationWhatsappUrl({
-      tutorName: leadForm.tutorName,
-      phone: leadForm.phone,
-      city: leadForm.city,
+      tutorName: leadForm.tutorName.trim(),
+      phone: normalizePhoneInput(leadForm.phone),
+      city: leadForm.city.trim(),
       petName: answers.petName,
       lifeStage: answers.lifeStage,
       breedSize: answers.breedSize,
     });
     track("whatsapp_clicked", qrParams, { flow: "registration" });
     track("session_completed", qrParams);
-    window.open(url, "_blank", "noopener");
+    openWhatsappUrl(url);
   };
 
   const progressIndex = ORDER.indexOf(step);
@@ -552,12 +570,23 @@ export function ChatbotPanel({ qrParams }: Props) {
             if (next === "consents") track("lead_form_viewed", qrParams);
             goto(next);
           }}
-          onSubmitRegistration={submitRegistration}
+          onSubmitRegistration={(navigateToWhatsapp) =>
+            submitRegistration(navigateToWhatsapp)
+          }
           onOpenWhatsapp={openWhatsapp}
         />
       </div>
     </aside>
   );
+}
+
+function openWhatsappUrl(url: string) {
+  const opened = window.open(url, "_blank");
+  if (opened) {
+    opened.opener = null;
+    return;
+  }
+  window.location.assign(url);
 }
 
 function Bubble({ children }: { children: React.ReactNode }) {
@@ -628,7 +657,7 @@ function FooterActions({
   leadForm: LeadForm;
   onStart: () => void;
   onNext: (s: Step) => void;
-  onSubmitRegistration: () => void;
+  onSubmitRegistration: (navigateToWhatsapp?: boolean) => void;
   onOpenWhatsapp: () => void;
 }) {
   const cta =
@@ -685,12 +714,44 @@ function FooterActions({
       </Button>
     );
   }
-  if (step === "consents")
+  if (step === "consents") {
+    const whatsappHref =
+      answers.petName && answers.lifeStage && answers.breedSize
+        ? buildRegistrationWhatsappUrl({
+            tutorName: leadForm.tutorName.trim(),
+            phone: normalizePhoneInput(leadForm.phone),
+            city: leadForm.city.trim(),
+            petName: answers.petName,
+            lifeStage: answers.lifeStage,
+            breedSize: answers.breedSize,
+          })
+        : undefined;
+
     return (
-      <Button className={cta} onClick={onSubmitRegistration}>
-        Generar mi 10% de descuento →
+      <Button className={cta} asChild>
+        <a
+          href={whatsappHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(event) => {
+            if (
+              !whatsappHref ||
+              !leadForm.consentWhatsApp ||
+              !leadForm.consentTerms ||
+              !leadForm.consentData
+            ) {
+              event.preventDefault();
+              onSubmitRegistration(false);
+            } else {
+              onSubmitRegistration(false);
+            }
+          }}
+        >
+          Generar mi 10% de descuento →
+        </a>
       </Button>
     );
+  }
   if (step === "success")
     return (
       <Button

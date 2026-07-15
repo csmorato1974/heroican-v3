@@ -1,16 +1,9 @@
-import { Camera, MessageCircle, ScanLine } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ScanLine } from "lucide-react";
 import type { QrParams } from "@/types/domain";
 import heroReel from "@/assets/hero-reel-profesional.mp4.asset.json";
 
 interface Props {
   qrParams: QrParams;
-}
-
-function openChatbot(e: React.MouseEvent) {
-  e.preventDefault();
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("heroican:open-chatbot"));
 }
 
 export function Hero({ qrParams: _qrParams }: Props) {

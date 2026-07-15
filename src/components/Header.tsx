@@ -1,4 +1,4 @@
-import heroicanLogo from "@/assets/heroican-logo.png.asset.json";
+import heroicanLogo from "@/assets/heroican-logo-v2.png.asset.json";
 
 export function Header() {
   return (

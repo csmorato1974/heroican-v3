@@ -227,11 +227,19 @@ export function ChatbotPanel({ qrParams }: Props) {
         createdAt: new Date().toISOString(),
         qrParams,
       });
+    } catch {
+      // WhatsApp debe abrir aunque falle el guardado local.
+    }
+
+    try {
       track("lead_submitted", qrParams, { flow: "registration" });
       track("whatsapp_clicked", qrParams, { flow: "registration" });
       track("session_completed", qrParams);
-    } finally {
-      if (!navigateToWhatsapp) return;
+    } catch {
+      // El tracking no debe bloquear la solicitud por WhatsApp.
+    }
+
+    if (navigateToWhatsapp) {
       openWhatsappUrl(url);
     }
     goto("success");

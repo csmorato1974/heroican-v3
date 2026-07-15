@@ -54,30 +54,6 @@ export function Hero({ qrParams: _qrParams }: Props) {
               Dos caminos, un mismo cariño.
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Button
-                onClick={openChatbot}
-                className="h-12 rounded-md bg-primary px-6 font-bold uppercase tracking-wide text-primary-foreground hover:bg-primary/90"
-              >
-                <MessageCircle className="mr-2 h-5 w-5" />
-                Registrar a mi mascota
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="h-12 rounded-md border-2 border-accent bg-transparent px-6 font-bold uppercase tracking-wide text-primary hover:bg-accent/10"
-              >
-                <a href="#foto-mascota">
-                  <Camera className="mr-2 h-5 w-5" />
-                  Orientarme con cámara
-                </a>
-              </Button>
-            </div>
-
-            <p className="mt-4 text-xs text-muted-foreground">
-              Chatbot para registro promocional · Cámara para orientación de
-              alimento.
-            </p>
           </div>
 
           <div className="mx-auto w-full max-w-full sm:max-w-md lg:max-w-md">

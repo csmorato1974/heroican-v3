@@ -16,12 +16,12 @@ export function Footer() {
             Contacto
           </p>
           <a
-            href="https://wa.me/59161212107"
+            href="https://wa.me/51942799091"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-foreground hover:text-primary"
           >
-            WhatsApp · +591 6121 2107
+            WhatsApp · +51 942 799 091
           </a>
           <a
             href="mailto:ventas@heroican.com"

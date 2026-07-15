@@ -203,6 +203,18 @@ export function ChatbotPanel({ qrParams }: Props) {
       qrParams,
     });
     track("lead_submitted", qrParams, { flow: "registration" });
+
+    const url = buildRegistrationWhatsappUrl({
+      tutorName: leadForm.tutorName,
+      phone: leadForm.phone,
+      city: leadForm.city,
+      petName: answers.petName,
+      lifeStage: answers.lifeStage,
+      breedSize: answers.breedSize,
+    });
+    track("whatsapp_clicked", qrParams, { flow: "registration" });
+    track("session_completed", qrParams);
+    window.open(url, "_blank", "noopener");
     goto("success");
   };
 

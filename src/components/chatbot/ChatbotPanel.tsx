@@ -116,12 +116,12 @@ export function ChatbotPanel({ qrParams }: Props) {
 
   // Persist
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!hydrated) return;
     window.localStorage.setItem(
       SESSION_KEY,
       JSON.stringify({ step, answers, leadForm }),
     );
-  }, [step, answers, leadForm]);
+  }, [hydrated, step, answers, leadForm]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

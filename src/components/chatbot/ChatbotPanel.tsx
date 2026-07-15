@@ -175,7 +175,7 @@ export function ChatbotPanel({ qrParams }: Props) {
     );
   };
 
-  const submitRegistration = () => {
+  const submitRegistration = (navigateToWhatsapp = true) => {
     const formForSubmit = {
       ...leadForm,
       tutorName: leadForm.tutorName.trim(),
@@ -231,6 +231,7 @@ export function ChatbotPanel({ qrParams }: Props) {
       track("whatsapp_clicked", qrParams, { flow: "registration" });
       track("session_completed", qrParams);
     } finally {
+      if (!navigateToWhatsapp) return;
       openWhatsappUrl(url);
     }
     goto("success");
@@ -561,7 +562,9 @@ export function ChatbotPanel({ qrParams }: Props) {
             if (next === "consents") track("lead_form_viewed", qrParams);
             goto(next);
           }}
-          onSubmitRegistration={submitRegistration}
+          onSubmitRegistration={(navigateToWhatsapp) =>
+            submitRegistration(navigateToWhatsapp)
+          }
           onOpenWhatsapp={openWhatsapp}
         />
       </div>
@@ -646,7 +649,7 @@ function FooterActions({
   leadForm: LeadForm;
   onStart: () => void;
   onNext: (s: Step) => void;
-  onSubmitRegistration: () => void;
+  onSubmitRegistration: (navigateToWhatsapp?: boolean) => void;
   onOpenWhatsapp: () => void;
 }) {
   const cta =
@@ -703,12 +706,44 @@ function FooterActions({
       </Button>
     );
   }
-  if (step === "consents")
+  if (step === "consents") {
+    const whatsappHref =
+      answers.petName && answers.lifeStage && answers.breedSize
+        ? buildRegistrationWhatsappUrl({
+            tutorName: leadForm.tutorName.trim(),
+            phone: normalizePhoneInput(leadForm.phone),
+            city: leadForm.city.trim(),
+            petName: answers.petName,
+            lifeStage: answers.lifeStage,
+            breedSize: answers.breedSize,
+          })
+        : undefined;
+
     return (
-      <Button className={cta} onClick={onSubmitRegistration}>
-        Generar mi 10% de descuento →
+      <Button className={cta} asChild>
+        <a
+          href={whatsappHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(event) => {
+            if (
+              !whatsappHref ||
+              !leadForm.consentWhatsApp ||
+              !leadForm.consentTerms ||
+              !leadForm.consentData
+            ) {
+              event.preventDefault();
+              onSubmitRegistration(false);
+            } else {
+              onSubmitRegistration(false);
+            }
+          }}
+        >
+          Generar mi 10% de descuento →
+        </a>
       </Button>
     );
+  }
   if (step === "success")
     return (
       <Button

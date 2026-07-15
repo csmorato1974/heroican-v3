@@ -248,7 +248,14 @@ export function BlueprintCamera({ open, onOpenChange, qrParams }: Props) {
               <PetInsightCard
                 analysis={analysis.result.analysis}
                 fallback={analysis.result.fallback}
-                onWhatsapp={shareWhatsappWithInsight}
+                onProductClick={({ productName, productUrl }) => {
+                  track("pet_recommendation_clicked", qrParams, {
+                    productName,
+                    productUrl,
+                    recommended_focus:
+                      analysis.result.analysis.recommended_focus,
+                  });
+                }}
               />
             )}
 

@@ -1,11 +1,14 @@
-import { MessageCircle, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { FOCUS_COPY, type PetAnalysis } from "@/lib/petAnalysis";
+import { Sparkles } from "lucide-react";
+import { type PetAnalysis } from "@/lib/petAnalysis";
+import {
+  getHeroicanRecommendation,
+  inferRecommendationInput,
+} from "@/lib/heroicanRecommendation";
 
 interface Props {
   analysis: PetAnalysis;
   fallback: boolean;
-  onWhatsapp: () => void;
+  onProductClick?: (info: { productName: string | null; productUrl: string }) => void;
 }
 
 function capitalize(s: string) {
@@ -13,8 +16,13 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function PetInsightCard({ analysis, fallback, onWhatsapp }: Props) {
-  const focus = FOCUS_COPY[analysis.recommended_focus] ?? FOCUS_COPY.general;
+export function PetInsightCard({ analysis, fallback, onProductClick }: Props) {
+  const recommendation = getHeroicanRecommendation(
+    inferRecommendationInput(analysis),
+  );
+  const ctaText = recommendation.productName
+    ? "ver recomendación para tu consentido"
+    : "explora nuestras recomendaciones para tu consentido";
 
   const chips = [
     analysis.detected_animal,
@@ -64,22 +72,31 @@ export function PetInsightCard({ analysis, fallback, onWhatsapp }: Props) {
 
       <p className="text-sm text-foreground leading-snug">{analysis.short_comment}</p>
 
-      <div className="rounded-xl bg-primary/5 border border-primary/15 p-3">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
-          {focus.label}
+      <div className="rounded-2xl border border-[#f1d7db] bg-[#fff4f5] p-4">
+        <p className="mb-2 text-sm font-bold uppercase tracking-wide text-[#c63d4f]">
+          {recommendation.title}
         </p>
-        <p className="mt-1 text-sm text-foreground/90 leading-snug">
-          {focus.recommendation}
-        </p>
+        <p className="text-base text-[#4b3d3f]">{recommendation.text}</p>
       </div>
 
-      <Button
-        onClick={onWhatsapp}
-        className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold h-11"
+      <a
+        href={recommendation.productUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          try {
+            onProductClick?.({
+              productName: recommendation.productName,
+              productUrl: recommendation.productUrl,
+            });
+          } catch {
+            // tracking no debe bloquear la navegación
+          }
+        }}
+        className="mt-1 inline-flex w-full items-center justify-center rounded-full bg-[#ef233c] px-6 py-4 text-white font-semibold hover:bg-[#d81f36] transition"
       >
-        <MessageCircle className="mr-2 h-4 w-4" />
-        Recibir recomendación por WhatsApp
-      </Button>
+        {ctaText}
+      </a>
 
       <p className="text-[10px] text-muted-foreground text-center">
         Orientación informativa basada en rasgos visibles. No reemplaza la

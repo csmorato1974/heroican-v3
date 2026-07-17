@@ -797,40 +797,27 @@ function FooterActions({
     );
   }
   if (step === "consents") {
-    const whatsappHref =
-      answers.petName && answers.lifeStage && answers.breedSize
-        ? buildRegistrationWhatsappUrl({
-            tutorName: leadForm.tutorName.trim(),
-            phone: normalizePhoneInput(leadForm.phone),
-            city: leadForm.city.trim(),
-            petName: answers.petName,
-            lifeStage: answers.lifeStage,
-            breedSize: answers.breedSize,
-          })
-        : undefined;
+    const consentsReady =
+      !!leadForm.consentWhatsApp &&
+      !!leadForm.consentTerms &&
+      !!leadForm.consentData &&
+      !!answers.petName &&
+      !!answers.lifeStage &&
+      !!answers.breedSize;
 
     return (
-      <Button className={cta} asChild>
-        <a
-          href={whatsappHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(event) => {
-            if (
-              !whatsappHref ||
-              !leadForm.consentWhatsApp ||
-              !leadForm.consentTerms ||
-              !leadForm.consentData
-            ) {
-              event.preventDefault();
-              onSubmitRegistration(false);
-            } else {
-              onSubmitRegistration(false);
-            }
-          }}
-        >
-          Generar mi 10% de descuento →
-        </a>
+      <Button
+        className={cta}
+        disabled={!consentsReady || submitting}
+        onClick={onSubmitRegistration}
+      >
+        {submitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generando…
+          </>
+        ) : (
+          <>Generar mi 10% de descuento →</>
+        )}
       </Button>
     );
   }

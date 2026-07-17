@@ -644,14 +644,15 @@ export function ChatbotPanel({ qrParams }: Props) {
           step={step}
           answers={answers}
           leadForm={leadForm}
+          submitting={submitting}
           onStart={startFlow}
           onNext={(next) => {
             if (next === "consents") track("lead_form_viewed", qrParams);
             goto(next);
           }}
-          onSubmitRegistration={(navigateToWhatsapp) =>
-            submitRegistration(navigateToWhatsapp)
-          }
+          onSubmitRegistration={() => {
+            void submitRegistration();
+          }}
           onOpenWhatsapp={openWhatsapp}
         />
       </div>

@@ -341,6 +341,21 @@ export function ChatbotPanel({ qrParams }: Props) {
     openWhatsappUrl(url);
   };
 
+  const resetFlow = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(SESSION_KEY);
+    }
+    setAnswers({});
+    setLeadForm({ ...DEFAULT_LEAD_FORM, city: qrParams.ciudad_url ?? "" });
+    setErrors({});
+    setCoords(undefined);
+    setSubmitting(false);
+    setStep("welcome");
+    track("registration_reset", qrParams);
+  };
+
+
+
 
   const progressIndex = ORDER.indexOf(step);
   const progressPct = Math.round((progressIndex / (ORDER.length - 1)) * 100);
@@ -657,7 +672,9 @@ export function ChatbotPanel({ qrParams }: Props) {
             void submitRegistration();
           }}
           onOpenWhatsapp={openWhatsapp}
+          onReset={resetFlow}
         />
+
       </div>
     </aside>
   );
@@ -735,6 +752,7 @@ function FooterActions({
   onNext,
   onSubmitRegistration,
   onOpenWhatsapp,
+  onReset,
 }: {
   step: Step;
   answers: SessionAnswers;
@@ -744,7 +762,9 @@ function FooterActions({
   onNext: (s: Step) => void;
   onSubmitRegistration: () => void;
   onOpenWhatsapp: () => void;
+  onReset: () => void;
 }) {
+
   const cta =
     "w-full rounded-full h-11 font-bold bg-primary text-primary-foreground hover:bg-primary/90";
 
@@ -826,13 +846,23 @@ function FooterActions({
   }
   if (step === "success")
     return (
-      <Button
-        className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
-        onClick={onOpenWhatsapp}
-      >
-        <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
-        WhatsApp
-      </Button>
+      <div className="space-y-2">
+        <Button
+          className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
+          onClick={onOpenWhatsapp}
+        >
+          <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
+          WhatsApp
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full rounded-full h-10 font-semibold"
+          onClick={onReset}
+        >
+          Registrar otra mascota
+        </Button>
+      </div>
+
     );
   return null;
 }

@@ -846,13 +846,23 @@ function FooterActions({
   }
   if (step === "success")
     return (
-      <Button
-        className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
-        onClick={onOpenWhatsapp}
-      >
-        <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
-        WhatsApp
-      </Button>
+      <div className="space-y-2">
+        <Button
+          className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
+          onClick={onOpenWhatsapp}
+        >
+          <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
+          WhatsApp
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full rounded-full h-10 font-semibold"
+          onClick={onReset}
+        >
+          Registrar otra mascota
+        </Button>
+      </div>
+
     );
   return null;
 }

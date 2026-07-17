@@ -672,7 +672,9 @@ export function ChatbotPanel({ qrParams }: Props) {
             void submitRegistration();
           }}
           onOpenWhatsapp={openWhatsapp}
+          onReset={resetFlow}
         />
+
       </div>
     </aside>
   );

@@ -1,31 +1,20 @@
-## Diagnóstico
+## Plan
 
-Reproduje el flujo del asistente hasta el CTA "Generar mi 10% de descuento":
+1. **Corregir el comportamiento del CTA final**
+   - Evitar que el botón “Generar mi 10% de descuento” actúe como submit implícito de algún formulario padre o provoque refresh del modal.
+   - Asegurar que los botones del asistente usen `type="button"` explícitamente.
 
-- El `INSERT` a `pet_registrations` funciona (Supabase responde `201`).
-- El problema es que **WhatsApp no se abre**: `openWhatsappUrl` llama a `window.open(url, "_blank")` **después de varios `await`** (geolocalización + insert). Los navegadores (especialmente móviles/Safari) sólo permiten `window.open` dentro del gesto directo del usuario. Al ejecutarse tras `await`, se pierde el "user activation" y el popup se bloquea silenciosamente → el usuario percibe "no se envía nada".
+2. **Hacer el envío más robusto**
+   - Mantener la validación actual de nombre, WhatsApp, ciudad y consentimientos.
+   - Si falta nombre de mascota, etapa o tamaño, mostrar un error claro en vez de “refrescar” silenciosamente.
+   - Mantener la geolocalización solo cuando el checkbox opcional esté marcado al hacer clic en enviar.
 
-## Corrección
+3. **Asegurar guardado y WhatsApp con Lead ID**
+   - Confirmar que el insert a `pet_registrations` se ejecute antes de pasar a éxito.
+   - No marcar el registro como completado si el guardado falla.
+   - Abrir WhatsApp solo con el Lead ID real generado para la fila insertada.
 
-En `src/components/chatbot/ChatbotPanel.tsx`:
-
-1. Dentro de `submitRegistration`, **antes** de cualquier `await`, abrir una pestaña placeholder sincrónicamente:
-   ```ts
-   const waTab = typeof window !== "undefined" ? window.open("", "_blank") : null;
-   if (waTab) waTab.opener = null;
-   ```
-2. Después de construir la URL final de WhatsApp, redirigir esa pestaña:
-   ```ts
-   if (waTab && !waTab.closed) waTab.location.href = url;
-   else window.location.assign(url); // fallback si el navegador bloqueó el popup
-   ```
-3. Eliminar la llamada final a `openWhatsappUrl(url)` (queda reemplazada por lo anterior).
-4. Si la validación falla antes de los `await` (schema o campos faltantes), cerrar `waTab` para no dejar pestañas vacías.
-
-Esto preserva el user gesture, garantiza que WhatsApp abra tras un insert exitoso, y mantiene la lógica existente de guardado, geolocalización y Lead ID.
-
-## Verificación
-
-Reejecutar el flujo con Playwright y confirmar que:
-- `pet_registrations` recibe la fila (ya confirmado 201).
-- Se abre una pestaña con `wa.me/...` incluyendo el `Lead ID`.
+4. **Verificar el flujo completo**
+   - Probar el asistente desde el inicio hasta el CTA final.
+   - Confirmar que aparece una petición `pet_registrations` exitosa y que no hay refresh del modal.
+   - Confirmar que WhatsApp se abre con el mensaje que incluye el Lead ID.

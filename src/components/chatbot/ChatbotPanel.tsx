@@ -752,6 +752,7 @@ function FooterActions({
   onNext,
   onSubmitRegistration,
   onOpenWhatsapp,
+  onReset,
 }: {
   step: Step;
   answers: SessionAnswers;
@@ -761,7 +762,9 @@ function FooterActions({
   onNext: (s: Step) => void;
   onSubmitRegistration: () => void;
   onOpenWhatsapp: () => void;
+  onReset: () => void;
 }) {
+
   const cta =
     "w-full rounded-full h-11 font-bold bg-primary text-primary-foreground hover:bg-primary/90";
 

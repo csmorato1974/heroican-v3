@@ -5,8 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, MessageCircle, X, Dog, Gift, Loader2 } from "lucide-react";
-import { track, getSessionId } from "@/lib/tracker";
-import { saveLead } from "@/lib/leads";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
 import { leadSchema, normalizePhoneInput } from "@/lib/validators";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,8 +38,8 @@ const ORDER: Step[] = [
   "success",
 ];
 
-const SESSION_KEY = "heroican.session";
-const MINIMIZED_KEY = "heroican.panel.minimized";
+const REGISTRATION_COMPLETED_KEY = "heroican.registration.completed";
+const LEGACY_SESSION_KEY = "heroican.session";
 
 interface LeadForm {
   tutorName: string;
@@ -63,38 +61,6 @@ const DEFAULT_LEAD_FORM: LeadForm = {
   consentLocation: false,
 };
 
-interface Persisted {
-  step: Step;
-  answers: SessionAnswers;
-  leadForm: LeadForm;
-}
-
-function loadPersisted(defaultCity: string): Persisted {
-  const base: Persisted = {
-    step: "welcome",
-    answers: {},
-    leadForm: { ...DEFAULT_LEAD_FORM, city: defaultCity },
-  };
-  if (typeof window === "undefined") return base;
-  try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
-    if (!raw) return base;
-    const parsed = JSON.parse(raw) as Partial<Persisted>;
-    // Merge con defaults: si faltan campos nuevos en sesiones antiguas,
-    // se completan en lugar de descartar todo el blob.
-    const validStep = (ORDER as string[]).includes(parsed.step as string)
-      ? (parsed.step as Step)
-      : "welcome";
-    return {
-      step: validStep,
-      answers: { ...base.answers, ...(parsed.answers ?? {}) },
-      leadForm: { ...base.leadForm, ...(parsed.leadForm ?? {}) },
-    };
-  } catch {
-    return base;
-  }
-}
-
 export function ChatbotPanel({ qrParams }: Props) {
   const [step, setStep] = useState<Step>("welcome");
   const [answers, setAnswers] = useState<SessionAnswers>({});
@@ -103,51 +69,48 @@ export function ChatbotPanel({ qrParams }: Props) {
     city: qrParams.ciudad_url ?? "",
   }));
   const [minimized, setMinimized] = useState(true);
-  const [hydrated, setHydrated] = useState(false);
+  const [registrationCompleted, setRegistrationCompleted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>();
   const [submitting, setSubmitting] = useState(false);
 
-  // Hydrate persisted state client-side only (avoids SSR mismatch)
-  useEffect(() => {
-    const p = loadPersisted(qrParams.ciudad_url ?? "");
-    setStep(p.step);
-    setAnswers(p.answers);
-    setLeadForm(p.leadForm);
-    setHydrated(true);
-  }, [qrParams.ciudad_url]);
-
-  // Persist
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(
-      SESSION_KEY,
-      JSON.stringify({ step, answers, leadForm }),
-    );
-  }, [hydrated, step, answers, leadForm]);
-
+  // Solo persiste si el usuario ya completó el registro. El formulario en
+  // progreso vive únicamente en React state y siempre inicia limpio.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(MINIMIZED_KEY);
-    setMinimized(stored !== "0");
-    track("landing_panel_mounted", qrParams);
-  }, [qrParams]);
+    window.localStorage.removeItem(LEGACY_SESSION_KEY);
+    const completed = window.localStorage.getItem(REGISTRATION_COMPLETED_KEY) === "1";
+    setRegistrationCompleted(completed);
+    if (completed) setStep("success");
+  }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(MINIMIZED_KEY, minimized ? "1" : "0");
-  }, [minimized]);
+  const resetTransientForm = () => {
+    setAnswers({});
+    setLeadForm({ ...DEFAULT_LEAD_FORM, city: qrParams.ciudad_url ?? "" });
+    setErrors({});
+    setCoords(undefined);
+    setSubmitting(false);
+    setStep("welcome");
+  };
+
+  const openCleanPanel = () => {
+    if (registrationCompleted) {
+      setStep("success");
+    } else {
+      resetTransientForm();
+    }
+    setMinimized(false);
+  };
 
   // Apertura desde el hero u otros CTAs
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handler = () => {
-      setMinimized(false);
-      track("panel_opened_external", qrParams);
+      openCleanPanel();
     };
     window.addEventListener("heroican:open-chatbot", handler);
     return () => window.removeEventListener("heroican:open-chatbot", handler);
-  }, [qrParams]);
+  }, [registrationCompleted]);
 
   const goto = (s: Step) => setStep(s);
   const answer = (
@@ -155,11 +118,9 @@ export function ChatbotPanel({ qrParams }: Props) {
     value: SessionAnswers[keyof SessionAnswers],
   ) => {
     setAnswers((a) => ({ ...a, [field]: value }));
-    track("question_answered", qrParams, { field, value });
   };
 
   const startFlow = () => {
-    track("quiz_started", qrParams, { flow: "registration" });
     goto("petName");
   };
 
@@ -179,10 +140,8 @@ export function ChatbotPanel({ qrParams }: Props) {
         resolve({ lat: null, lng: null, status: "unsupported" });
         return;
       }
-      track("geolocation_requested", qrParams);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          track("geolocation_granted", qrParams);
           resolve({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
@@ -190,7 +149,6 @@ export function ChatbotPanel({ qrParams }: Props) {
           });
         },
         () => {
-          track("geolocation_denied", qrParams);
           resolve({ lat: null, lng: null, status: "denied" });
         },
         { enableHighAccuracy: false, timeout: 8000 },
@@ -276,40 +234,6 @@ export function ChatbotPanel({ qrParams }: Props) {
       toast.error(`No pudimos guardar tu registro: ${msg}`);
     }
 
-    // 3) Guardado local (no bloqueante)
-    try {
-      saveLead({
-        id: leadId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : Math.random().toString(36).slice(2)),
-        sessionId: getSessionId(),
-        tutorName: parsed.data.tutorName,
-        phone: parsed.data.phone,
-        city: parsed.data.city,
-        petName: answers.petName,
-        lifeStage: answers.lifeStage,
-        breedSize: answers.breedSize,
-        needs: [],
-        recommendedProduct: "Registro promocional 10%",
-        consentWhatsApp: true,
-        consentLocation: !!leadForm.consentLocation,
-        locationLat: lat ?? undefined,
-        locationLng: lng ?? undefined,
-        createdAt: new Date().toISOString(),
-        qrParams,
-      });
-    } catch {
-      // ignore
-    }
-
-    try {
-      track("lead_submitted", qrParams, { flow: "registration", leadId });
-      track("whatsapp_clicked", qrParams, { flow: "registration" });
-      track("session_completed", qrParams);
-    } catch {
-      // ignore
-    }
-
     // 4) Construir URL de WhatsApp con Lead ID y abrir
     const url = buildRegistrationWhatsappUrl({
       tutorName: parsed.data.tutorName,
@@ -322,6 +246,11 @@ export function ChatbotPanel({ qrParams }: Props) {
     });
 
     setSubmitting(false);
+    setRegistrationCompleted(true);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(REGISTRATION_COMPLETED_KEY, "1");
+      window.localStorage.removeItem(LEGACY_SESSION_KEY);
+    }
     goto("success");
     openWhatsappUrl(url);
   };
@@ -336,22 +265,16 @@ export function ChatbotPanel({ qrParams }: Props) {
       lifeStage: answers.lifeStage,
       breedSize: answers.breedSize,
     });
-    track("whatsapp_clicked", qrParams, { flow: "registration" });
-    track("session_completed", qrParams);
     openWhatsappUrl(url);
   };
 
   const resetFlow = () => {
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(SESSION_KEY);
+      window.localStorage.removeItem(REGISTRATION_COMPLETED_KEY);
+      window.localStorage.removeItem(LEGACY_SESSION_KEY);
     }
-    setAnswers({});
-    setLeadForm({ ...DEFAULT_LEAD_FORM, city: qrParams.ciudad_url ?? "" });
-    setErrors({});
-    setCoords(undefined);
-    setSubmitting(false);
-    setStep("welcome");
-    track("registration_reset", qrParams);
+    setRegistrationCompleted(false);
+    resetTransientForm();
   };
 
 
@@ -362,20 +285,21 @@ export function ChatbotPanel({ qrParams }: Props) {
 
   // ===== Floating dog-bot button =====
   if (minimized) {
-    const started = progressIndex > 0;
+    const started = !registrationCompleted && progressIndex > 0;
     return (
       <button
         onClick={() => {
-          setMinimized(false);
-          track("panel_restored", qrParams);
+          openCleanPanel();
         }}
         aria-label="Registrar mi mascota y obtener 10% de descuento"
         className="fixed bottom-5 right-5 z-50 group flex items-center gap-3"
       >
         <span className="hidden sm:flex items-center rounded-2xl rounded-br-sm border border-border bg-card/95 backdrop-blur px-3 py-2 text-xs font-semibold text-foreground shadow-md group-hover:-translate-x-0.5 transition-transform">
-          {started
-            ? `Continuar registro · ${progressPct}%`
-            : "Regístrala y obtén 10% dto."}
+          {registrationCompleted
+            ? "¡Ya estás registrado!"
+            : started
+              ? `Continuar registro · ${progressPct}%`
+              : "Regístrala y obtén 10% dto."}
         </span>
         <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg group-hover:scale-105 transition-transform">
           <Dog className="h-8 w-8" strokeWidth={2.2} />
@@ -429,7 +353,6 @@ export function ChatbotPanel({ qrParams }: Props) {
           aria-label="Cerrar panel"
           onClick={() => {
             setMinimized(true);
-            track("panel_minimized", qrParams);
           }}
           className="rounded p-1.5 hover:bg-muted text-muted-foreground"
         >
@@ -637,11 +560,19 @@ export function ChatbotPanel({ qrParams }: Props) {
 
         {step === "success" && (
           <>
-            <Bubble>
-              🎉 ¡Listo, <strong>{answers.petName}</strong> quedó registrada!
-              Tu <strong className="text-primary">10% de descuento</strong> te
-              espera por WhatsApp.
-            </Bubble>
+            {answers.petName ? (
+              <Bubble>
+                🎉 ¡Listo, <strong>{answers.petName}</strong> quedó registrada!
+                Tu <strong className="text-primary">10% de descuento</strong> te
+                espera por WhatsApp.
+              </Bubble>
+            ) : (
+              <Bubble>
+                🎉 ¡Ya estás registrado! Tu{" "}
+                <strong className="text-primary">10% de descuento</strong> ya fue
+                generado.
+              </Bubble>
+            )}
             <div className="brand-card rounded-md p-4 text-sm space-y-2">
               <p>
                 Presiona el botón para abrir WhatsApp con el equipo Heroican y
@@ -665,7 +596,6 @@ export function ChatbotPanel({ qrParams }: Props) {
           submitting={submitting}
           onStart={startFlow}
           onNext={(next) => {
-            if (next === "consents") track("lead_form_viewed", qrParams);
             goto(next);
           }}
           onSubmitRegistration={() => {
@@ -847,13 +777,15 @@ function FooterActions({
   if (step === "success")
     return (
       <div className="space-y-2">
-        <Button
-          className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
-          onClick={onOpenWhatsapp}
-        >
-          <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
-          WhatsApp
-        </Button>
+        {answers.petName && (
+          <Button
+            className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
+            onClick={onOpenWhatsapp}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
+            WhatsApp
+          </Button>
+        )}
         <Button
           variant="outline"
           className="w-full rounded-full h-10 font-semibold"

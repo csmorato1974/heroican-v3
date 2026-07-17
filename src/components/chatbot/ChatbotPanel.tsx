@@ -121,7 +121,7 @@ export function ChatbotPanel({ qrParams }: Props) {
     value: SessionAnswers[keyof SessionAnswers],
   ) => {
     setAnswers((a) => ({ ...a, [field]: value }));
-    track("question_answered", qrParams, { field, value });
+    track("question_answered", qrParams, { field });
   };
 
   const startFlow = () => {
@@ -799,13 +799,15 @@ function FooterActions({
   if (step === "success")
     return (
       <div className="space-y-2">
-        <Button
-          className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
-          onClick={onOpenWhatsapp}
-        >
-          <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
-          WhatsApp
-        </Button>
+        {answers.petName && (
+          <Button
+            className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
+            onClick={onOpenWhatsapp}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" /> Solicitar descuento por
+            WhatsApp
+          </Button>
+        )}
         <Button
           variant="outline"
           className="w-full rounded-full h-10 font-semibold"

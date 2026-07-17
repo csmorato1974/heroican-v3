@@ -1,21 +1,31 @@
-## Reemplazar imagen del Hero por video subido
+## Diagnóstico
 
-**Archivos:**
-- Subir `user-uploads://Heroican_Reel_profesional_fade_H264.mp4` como asset CDN → `src/assets/hero-reel-profesional.mp4.asset.json`
-- `src/components/Hero.tsx`
+Reproduje el flujo del asistente hasta el CTA "Generar mi 10% de descuento":
 
-**Cambios en `Hero.tsx`:**
-1. Quitar el import de `heroSeq01` y el `<img>`.
-2. Importar el nuevo asset de video.
-3. Reemplazar el bloque de imagen por un `<video>` con `autoPlay muted loop playsInline preload="metadata"` y `poster` opcional.
-4. **Mobile-first (cubre toda la pantalla):**
-   - En móvil el video se muestra a ancho completo (sin el contenedor `max-w-[300px]`), con `w-full` y proporción natural, apareciendo debajo del texto.
-   - Alternativa considerada: full-bleed edge-to-edge rompiendo el `max-w-6xl` → se opta por full-width dentro del contenedor para mantener consistencia; si se quiere edge-to-edge total, se saca el video del `<div className="mx-auto max-w-6xl ...">` y se coloca como bloque aparte en móvil. **Voy con full-width dentro del padding actual** para no romper la rejilla; se puede ajustar si prefieres edge-to-edge.
-5. **Desktop (lateral):**
-   - Mantener el grid `lg:grid-cols-[1.15fr_1fr]`, el video ocupa la columna derecha con `lg:max-w-md`, bordes redondeados, `object-cover`, aspect ratio vertical (~3/4 o 4/5) para lucir bien al lado del texto.
-6. Conservar el chip "Hecho en Tacna" superpuesto.
-7. Mantener `border border-border rounded-2xl overflow-hidden bg-secondary`.
+- El `INSERT` a `pet_registrations` funciona (Supabase responde `201`).
+- El problema es que **WhatsApp no se abre**: `openWhatsappUrl` llama a `window.open(url, "_blank")` **después de varios `await`** (geolocalización + insert). Los navegadores (especialmente móviles/Safari) sólo permiten `window.open` dentro del gesto directo del usuario. Al ejecutarse tras `await`, se pierde el "user activation" y el popup se bloquea silenciosamente → el usuario percibe "no se envía nada".
 
-**Sin cambios** en branding, tipografía, colores, otros componentes ni lógica.
+## Corrección
 
-**Verificación:** build + revisión visual a 390px y desktop.
+En `src/components/chatbot/ChatbotPanel.tsx`:
+
+1. Dentro de `submitRegistration`, **antes** de cualquier `await`, abrir una pestaña placeholder sincrónicamente:
+   ```ts
+   const waTab = typeof window !== "undefined" ? window.open("", "_blank") : null;
+   if (waTab) waTab.opener = null;
+   ```
+2. Después de construir la URL final de WhatsApp, redirigir esa pestaña:
+   ```ts
+   if (waTab && !waTab.closed) waTab.location.href = url;
+   else window.location.assign(url); // fallback si el navegador bloqueó el popup
+   ```
+3. Eliminar la llamada final a `openWhatsappUrl(url)` (queda reemplazada por lo anterior).
+4. Si la validación falla antes de los `await` (schema o campos faltantes), cerrar `waTab` para no dejar pestañas vacías.
+
+Esto preserva el user gesture, garantiza que WhatsApp abra tras un insert exitoso, y mantiene la lógica existente de guardado, geolocalización y Lead ID.
+
+## Verificación
+
+Reejecutar el flujo con Playwright y confirmar que:
+- `pet_registrations` recibe la fila (ya confirmado 201).
+- Se abre una pestaña con `wa.me/...` incluyendo el `Lead ID`.

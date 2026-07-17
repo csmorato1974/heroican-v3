@@ -188,31 +188,45 @@ export function ChatbotPanel({ qrParams }: Props) {
       return;
     }
 
+    // 1) Geolocalización SINCRÓNICA (ligada al gesto del usuario) — antes de cualquier await.
+    //    Esto asegura que el prompt de permisos aparezca en móvil.
+    const geoPromise: Promise<{
+      lat: number | null;
+      lng: number | null;
+      status: "granted" | "denied" | "unsupported" | "not_requested";
+    }> = leadForm.consentLocation
+      ? new Promise((resolve) => {
+          if (typeof navigator === "undefined" || !navigator.geolocation) {
+            resolve({ lat: null, lng: null, status: "unsupported" });
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (pos) =>
+              resolve({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                status: "granted",
+              }),
+            (err) =>
+              resolve({
+                lat: null,
+                lng: null,
+                status:
+                  err.code === err.PERMISSION_DENIED ? "denied" : "not_requested",
+              }),
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+          );
+        })
+      : Promise.resolve({ lat: null, lng: null, status: "not_requested" as const });
+
     setSubmitting(true);
 
-    // Abrir pestaña placeholder SINCRÓNICAMENTE después de validar para preservar
-    // el gesto del usuario sin dejar pestañas vacías cuando hay errores.
-    const waTab =
-      typeof window !== "undefined" ? window.open("", "_blank") : null;
-    if (waTab) waTab.opener = null;
-
-    // 1) Geolocalización condicional (solo al enviar)
-    let lat: number | null = null;
-    let lng: number | null = null;
-    let geolocation_status:
-      | "granted"
-      | "denied"
-      | "unsupported"
-      | "not_requested" = "not_requested";
-
-    if (leadForm.consentLocation) {
-      const geo = await getGeolocation();
-      lat = geo.lat;
-      lng = geo.lng;
-      geolocation_status = geo.status;
-      if (geo.status === "granted" && geo.lat != null && geo.lng != null) {
-        setCoords({ lat: geo.lat, lng: geo.lng });
-      }
+    const geo = await geoPromise;
+    const lat = geo.lat;
+    const lng = geo.lng;
+    const geolocation_status = geo.status;
+    if (geo.status === "granted" && geo.lat != null && geo.lng != null) {
+      setCoords({ lat: geo.lat, lng: geo.lng });
     }
 
     // 2) Insert en Supabase (id generado en cliente para no depender de SELECT como anon)
@@ -220,7 +234,6 @@ export function ChatbotPanel({ qrParams }: Props) {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    let leadId: string | null = null;
     try {
       const { error } = await supabase.from("pet_registrations").insert({
         id: clientLeadId,
@@ -242,7 +255,6 @@ export function ChatbotPanel({ qrParams }: Props) {
       });
 
       if (error) throw error;
-      leadId = clientLeadId;
       setSubmittedLeadId(clientLeadId);
     } catch (err) {
       const msg =
@@ -251,12 +263,11 @@ export function ChatbotPanel({ qrParams }: Props) {
           : String(err);
       console.error("[pet_registrations] insert failed", err);
       toast.error(`No pudimos guardar tu registro: ${msg}`);
-      if (waTab && !waTab.closed) waTab.close();
       setSubmitting(false);
       return;
     }
 
-    // 4) Construir URL de WhatsApp con Lead ID y abrir
+    // 3) Construir URL de WhatsApp con el Lead ID recién insertado
     const url = buildRegistrationWhatsappUrl({
       tutorName: parsed.data.tutorName,
       phone: parsed.data.phone,
@@ -264,7 +275,7 @@ export function ChatbotPanel({ qrParams }: Props) {
       petName: answers.petName,
       lifeStage: answers.lifeStage,
       breedSize: answers.breedSize,
-      leadId,
+      leadId: clientLeadId,
     });
 
     setSubmitting(false);
@@ -275,11 +286,9 @@ export function ChatbotPanel({ qrParams }: Props) {
     }
     goto("success");
 
-    // Redirigir la pestaña abierta al inicio; si el navegador la bloqueó, hacer fallback.
-    if (waTab && !waTab.closed) {
-      waTab.location.href = url;
-    } else {
-      window.location.assign(url);
+    // Navegar en la misma pestaña — evita el bloqueo cross-origin de about:blank.
+    if (typeof window !== "undefined") {
+      window.location.href = url;
     }
   };
 

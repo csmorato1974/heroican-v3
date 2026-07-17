@@ -239,38 +239,41 @@ export function ChatbotPanel({ qrParams }: Props) {
       }
     }
 
-    // 2) Insert en Supabase
+    // 2) Insert en Supabase (id generado en cliente para no depender de SELECT como anon)
+    const clientLeadId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let leadId: string | null = null;
     try {
-      const { data, error } = await supabase
-        .from("pet_registrations")
-        .insert({
-          tutor_name: parsed.data.tutorName,
-          whatsapp: parsed.data.phone,
-          city: parsed.data.city,
-          pet_name: answers.petName,
-          life_stage: answers.lifeStage,
-          pet_size: answers.breedSize,
-          consent_whatsapp: !!leadForm.consentWhatsApp,
-          consent_terms: !!leadForm.consentTerms,
-          consent_privacy: !!leadForm.consentData,
-          consent_location: !!leadForm.consentLocation,
-          latitude: lat,
-          longitude: lng,
-          geolocation_status,
-          source: "heroican_landing",
-          lead_status: "new",
-        })
-        .select("id")
-        .single();
+      const { error } = await supabase.from("pet_registrations").insert({
+        id: clientLeadId,
+        tutor_name: parsed.data.tutorName,
+        whatsapp: parsed.data.phone,
+        city: parsed.data.city,
+        pet_name: answers.petName,
+        life_stage: answers.lifeStage,
+        pet_size: answers.breedSize,
+        consent_whatsapp: !!leadForm.consentWhatsApp,
+        consent_terms: !!leadForm.consentTerms,
+        consent_privacy: !!leadForm.consentData,
+        consent_location: !!leadForm.consentLocation,
+        latitude: lat,
+        longitude: lng,
+        geolocation_status,
+        source: "heroican_landing",
+        lead_status: "new",
+      });
 
       if (error) throw error;
-      leadId = data?.id ?? null;
+      leadId = clientLeadId;
     } catch (err) {
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: unknown }).message)
+          : String(err);
       console.error("[pet_registrations] insert failed", err);
-      toast.error(
-        "No pudimos guardar tu registro, pero te abriremos WhatsApp igual.",
-      );
+      toast.error(`No pudimos guardar tu registro: ${msg}`);
     }
 
     // 3) Guardado local (no bloqueante)

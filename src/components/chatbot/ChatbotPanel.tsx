@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, MessageCircle, X, Dog, Gift } from "lucide-react";
+import { ArrowLeft, MessageCircle, X, Dog, Gift, Loader2 } from "lucide-react";
 import { track, getSessionId } from "@/lib/tracker";
 import { saveLead } from "@/lib/leads";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
 import { leadSchema, normalizePhoneInput } from "@/lib/validators";
+import { supabase } from "@/integrations/supabase/client";
 import {
   type BreedSize,
   type LifeStage,
@@ -104,6 +106,7 @@ export function ChatbotPanel({ qrParams }: Props) {
   const [hydrated, setHydrated] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>();
+  const [submitting, setSubmitting] = useState(false);
 
   // Hydrate persisted state client-side only (avoids SSR mismatch)
   useEffect(() => {
@@ -161,21 +164,42 @@ export function ChatbotPanel({ qrParams }: Props) {
   };
 
   const requestLocation = (checked: boolean) => {
+    // Solo actualizamos el checkbox aquí. El prompt de geolocalización
+    // ocurre en el submit para respetar el "solo pedir al enviar".
     setLeadForm((f) => ({ ...f, consentLocation: checked }));
-    if (!checked) return;
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    track("geolocation_requested", qrParams);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        track("geolocation_granted", qrParams);
-      },
-      () => track("geolocation_denied", qrParams),
-      { enableHighAccuracy: false, timeout: 8000 },
-    );
   };
 
-  const submitRegistration = (navigateToWhatsapp = true) => {
+  const getGeolocation = (): Promise<{
+    lat: number | null;
+    lng: number | null;
+    status: "granted" | "denied" | "unsupported";
+  }> => {
+    return new Promise((resolve) => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        resolve({ lat: null, lng: null, status: "unsupported" });
+        return;
+      }
+      track("geolocation_requested", qrParams);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          track("geolocation_granted", qrParams);
+          resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            status: "granted",
+          });
+        },
+        () => {
+          track("geolocation_denied", qrParams);
+          resolve({ lat: null, lng: null, status: "denied" });
+        },
+        { enableHighAccuracy: false, timeout: 8000 },
+      );
+    });
+  };
+
+  const submitRegistration = async () => {
+    if (submitting) return;
     const formForSubmit = {
       ...leadForm,
       tutorName: leadForm.tutorName.trim(),
@@ -194,23 +218,67 @@ export function ChatbotPanel({ qrParams }: Props) {
     setErrors({});
     if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;
 
-    const url = buildRegistrationWhatsappUrl({
-      tutorName: parsed.data.tutorName,
-      phone: parsed.data.phone,
-      city: parsed.data.city,
-      petName: answers.petName,
-      lifeStage: answers.lifeStage,
-      breedSize: answers.breedSize,
-    });
+    setSubmitting(true);
 
-    const leadId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2);
+    // 1) Geolocalización condicional (solo al enviar)
+    let lat: number | null = null;
+    let lng: number | null = null;
+    let geolocation_status:
+      | "granted"
+      | "denied"
+      | "unsupported"
+      | "not_requested" = "not_requested";
 
+    if (leadForm.consentLocation) {
+      const geo = await getGeolocation();
+      lat = geo.lat;
+      lng = geo.lng;
+      geolocation_status = geo.status;
+      if (geo.status === "granted" && geo.lat != null && geo.lng != null) {
+        setCoords({ lat: geo.lat, lng: geo.lng });
+      }
+    }
+
+    // 2) Insert en Supabase
+    let leadId: string | null = null;
+    try {
+      const { data, error } = await supabase
+        .from("pet_registrations")
+        .insert({
+          tutor_name: parsed.data.tutorName,
+          whatsapp: parsed.data.phone,
+          city: parsed.data.city,
+          pet_name: answers.petName,
+          life_stage: answers.lifeStage,
+          pet_size: answers.breedSize,
+          consent_whatsapp: !!leadForm.consentWhatsApp,
+          consent_terms: !!leadForm.consentTerms,
+          consent_privacy: !!leadForm.consentData,
+          consent_location: !!leadForm.consentLocation,
+          latitude: lat,
+          longitude: lng,
+          geolocation_status,
+          source: "heroican_landing",
+          lead_status: "new",
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      leadId = data?.id ?? null;
+    } catch (err) {
+      console.error("[pet_registrations] insert failed", err);
+      toast.error(
+        "No pudimos guardar tu registro, pero te abriremos WhatsApp igual.",
+      );
+    }
+
+    // 3) Guardado local (no bloqueante)
     try {
       saveLead({
-        id: leadId,
+        id: leadId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2)),
         sessionId: getSessionId(),
         tutorName: parsed.data.tutorName,
         phone: parsed.data.phone,
@@ -222,27 +290,37 @@ export function ChatbotPanel({ qrParams }: Props) {
         recommendedProduct: "Registro promocional 10%",
         consentWhatsApp: true,
         consentLocation: !!leadForm.consentLocation,
-        locationLat: coords?.lat,
-        locationLng: coords?.lng,
+        locationLat: lat ?? undefined,
+        locationLng: lng ?? undefined,
         createdAt: new Date().toISOString(),
         qrParams,
       });
     } catch {
-      // WhatsApp debe abrir aunque falle el guardado local.
+      // ignore
     }
 
     try {
-      track("lead_submitted", qrParams, { flow: "registration" });
+      track("lead_submitted", qrParams, { flow: "registration", leadId });
       track("whatsapp_clicked", qrParams, { flow: "registration" });
       track("session_completed", qrParams);
     } catch {
-      // El tracking no debe bloquear la solicitud por WhatsApp.
+      // ignore
     }
 
-    if (navigateToWhatsapp) {
-      openWhatsappUrl(url);
-    }
+    // 4) Construir URL de WhatsApp con Lead ID y abrir
+    const url = buildRegistrationWhatsappUrl({
+      tutorName: parsed.data.tutorName,
+      phone: parsed.data.phone,
+      city: parsed.data.city,
+      petName: answers.petName,
+      lifeStage: answers.lifeStage,
+      breedSize: answers.breedSize,
+      leadId,
+    });
+
+    setSubmitting(false);
     goto("success");
+    openWhatsappUrl(url);
   };
 
   const openWhatsapp = () => {
@@ -259,6 +337,7 @@ export function ChatbotPanel({ qrParams }: Props) {
     track("session_completed", qrParams);
     openWhatsappUrl(url);
   };
+
 
   const progressIndex = ORDER.indexOf(step);
   const progressPct = Math.round((progressIndex / (ORDER.length - 1)) * 100);
@@ -565,14 +644,15 @@ export function ChatbotPanel({ qrParams }: Props) {
           step={step}
           answers={answers}
           leadForm={leadForm}
+          submitting={submitting}
           onStart={startFlow}
           onNext={(next) => {
             if (next === "consents") track("lead_form_viewed", qrParams);
             goto(next);
           }}
-          onSubmitRegistration={(navigateToWhatsapp) =>
-            submitRegistration(navigateToWhatsapp)
-          }
+          onSubmitRegistration={() => {
+            void submitRegistration();
+          }}
           onOpenWhatsapp={openWhatsapp}
         />
       </div>
@@ -647,6 +727,7 @@ function FooterActions({
   step,
   answers,
   leadForm,
+  submitting,
   onStart,
   onNext,
   onSubmitRegistration,
@@ -655,9 +736,10 @@ function FooterActions({
   step: Step;
   answers: SessionAnswers;
   leadForm: LeadForm;
+  submitting: boolean;
   onStart: () => void;
   onNext: (s: Step) => void;
-  onSubmitRegistration: (navigateToWhatsapp?: boolean) => void;
+  onSubmitRegistration: () => void;
   onOpenWhatsapp: () => void;
 }) {
   const cta =
@@ -715,40 +797,27 @@ function FooterActions({
     );
   }
   if (step === "consents") {
-    const whatsappHref =
-      answers.petName && answers.lifeStage && answers.breedSize
-        ? buildRegistrationWhatsappUrl({
-            tutorName: leadForm.tutorName.trim(),
-            phone: normalizePhoneInput(leadForm.phone),
-            city: leadForm.city.trim(),
-            petName: answers.petName,
-            lifeStage: answers.lifeStage,
-            breedSize: answers.breedSize,
-          })
-        : undefined;
+    const consentsReady =
+      !!leadForm.consentWhatsApp &&
+      !!leadForm.consentTerms &&
+      !!leadForm.consentData &&
+      !!answers.petName &&
+      !!answers.lifeStage &&
+      !!answers.breedSize;
 
     return (
-      <Button className={cta} asChild>
-        <a
-          href={whatsappHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(event) => {
-            if (
-              !whatsappHref ||
-              !leadForm.consentWhatsApp ||
-              !leadForm.consentTerms ||
-              !leadForm.consentData
-            ) {
-              event.preventDefault();
-              onSubmitRegistration(false);
-            } else {
-              onSubmitRegistration(false);
-            }
-          }}
-        >
-          Generar mi 10% de descuento →
-        </a>
+      <Button
+        className={cta}
+        disabled={!consentsReady || submitting}
+        onClick={onSubmitRegistration}
+      >
+        {submitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generando…
+          </>
+        ) : (
+          <>Generar mi 10% de descuento →</>
+        )}
       </Button>
     );
   }

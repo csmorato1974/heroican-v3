@@ -25,6 +25,7 @@ export interface RegistrationWaVars {
   petName: string;
   lifeStage: string;
   breedSize: string;
+  leadId?: string | null;
 }
 
 /**
@@ -40,6 +41,7 @@ export function buildRegistrationWhatsappUrl(v: RegistrationWaVars): string {
     `Mascota: ${v.petName}`,
     `Etapa: ${v.lifeStage}`,
     `Tamaño: ${v.breedSize}`,
+    `Lead ID: ${v.leadId || "N/A"}`,
   ].join("\n");
   return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
 }

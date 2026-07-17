@@ -56,6 +56,69 @@ export type Database = {
         }
         Relationships: []
       }
+      pet_registrations: {
+        Row: {
+          city: string | null
+          consent_location: boolean
+          consent_privacy: boolean
+          consent_terms: boolean
+          consent_whatsapp: boolean
+          created_at: string
+          dm_payload: string | null
+          geolocation_status: string | null
+          id: string
+          latitude: number | null
+          lead_status: string | null
+          life_stage: string | null
+          longitude: number | null
+          pet_name: string | null
+          pet_size: string | null
+          source: string | null
+          tutor_name: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          city?: string | null
+          consent_location?: boolean
+          consent_privacy?: boolean
+          consent_terms?: boolean
+          consent_whatsapp?: boolean
+          created_at?: string
+          dm_payload?: string | null
+          geolocation_status?: string | null
+          id?: string
+          latitude?: number | null
+          lead_status?: string | null
+          life_stage?: string | null
+          longitude?: number | null
+          pet_name?: string | null
+          pet_size?: string | null
+          source?: string | null
+          tutor_name?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          city?: string | null
+          consent_location?: boolean
+          consent_privacy?: boolean
+          consent_terms?: boolean
+          consent_whatsapp?: boolean
+          created_at?: string
+          dm_payload?: string | null
+          geolocation_status?: string | null
+          id?: string
+          latitude?: number | null
+          lead_status?: string | null
+          life_stage?: string | null
+          longitude?: number | null
+          pet_name?: string | null
+          pet_size?: string | null
+          source?: string | null
+          tutor_name?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -104,6 +104,7 @@ export function ChatbotPanel({ qrParams }: Props) {
   }));
   const [minimized, setMinimized] = useState(true);
   const [hydrated, setHydrated] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>();
   const [submitting, setSubmitting] = useState(false);
 

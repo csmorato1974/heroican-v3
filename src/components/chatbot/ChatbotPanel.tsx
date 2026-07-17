@@ -341,6 +341,21 @@ export function ChatbotPanel({ qrParams }: Props) {
     openWhatsappUrl(url);
   };
 
+  const resetFlow = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(SESSION_KEY);
+    }
+    setAnswers({});
+    setLeadForm({ ...DEFAULT_LEAD_FORM, city: qrParams.ciudad_url ?? "" });
+    setErrors({});
+    setCoords(undefined);
+    setSubmitting(false);
+    setStep("welcome");
+    track("registration_reset", qrParams);
+  };
+
+
+
 
   const progressIndex = ORDER.indexOf(step);
   const progressPct = Math.round((progressIndex / (ORDER.length - 1)) * 100);

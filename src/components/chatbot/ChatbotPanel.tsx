@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, MessageCircle, X, Dog, Gift, Loader2 } from "lucide-react";
-import { track } from "@/lib/tracker";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
 import { leadSchema, normalizePhoneInput } from "@/lib/validators";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,8 +82,7 @@ export function ChatbotPanel({ qrParams }: Props) {
     const completed = window.localStorage.getItem(REGISTRATION_COMPLETED_KEY) === "1";
     setRegistrationCompleted(completed);
     if (completed) setStep("success");
-    track("landing_panel_mounted", qrParams);
-  }, [qrParams]);
+  }, []);
 
   const resetTransientForm = () => {
     setAnswers({});
@@ -109,11 +107,10 @@ export function ChatbotPanel({ qrParams }: Props) {
     if (typeof window === "undefined") return;
     const handler = () => {
       openCleanPanel();
-      track("panel_opened_external", qrParams);
     };
     window.addEventListener("heroican:open-chatbot", handler);
     return () => window.removeEventListener("heroican:open-chatbot", handler);
-  }, [qrParams, registrationCompleted]);
+  }, [registrationCompleted]);
 
   const goto = (s: Step) => setStep(s);
   const answer = (
@@ -121,11 +118,9 @@ export function ChatbotPanel({ qrParams }: Props) {
     value: SessionAnswers[keyof SessionAnswers],
   ) => {
     setAnswers((a) => ({ ...a, [field]: value }));
-    track("question_answered", qrParams, { field });
   };
 
   const startFlow = () => {
-    track("quiz_started", qrParams, { flow: "registration" });
     goto("petName");
   };
 
@@ -145,10 +140,8 @@ export function ChatbotPanel({ qrParams }: Props) {
         resolve({ lat: null, lng: null, status: "unsupported" });
         return;
       }
-      track("geolocation_requested", qrParams);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          track("geolocation_granted", qrParams);
           resolve({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
@@ -156,7 +149,6 @@ export function ChatbotPanel({ qrParams }: Props) {
           });
         },
         () => {
-          track("geolocation_denied", qrParams);
           resolve({ lat: null, lng: null, status: "denied" });
         },
         { enableHighAccuracy: false, timeout: 8000 },
@@ -242,14 +234,6 @@ export function ChatbotPanel({ qrParams }: Props) {
       toast.error(`No pudimos guardar tu registro: ${msg}`);
     }
 
-    try {
-      track("lead_submitted", qrParams, { flow: "registration", leadId });
-      track("whatsapp_clicked", qrParams, { flow: "registration" });
-      track("session_completed", qrParams);
-    } catch {
-      // ignore
-    }
-
     // 4) Construir URL de WhatsApp con Lead ID y abrir
     const url = buildRegistrationWhatsappUrl({
       tutorName: parsed.data.tutorName,
@@ -281,8 +265,6 @@ export function ChatbotPanel({ qrParams }: Props) {
       lifeStage: answers.lifeStage,
       breedSize: answers.breedSize,
     });
-    track("whatsapp_clicked", qrParams, { flow: "registration" });
-    track("session_completed", qrParams);
     openWhatsappUrl(url);
   };
 
@@ -293,7 +275,6 @@ export function ChatbotPanel({ qrParams }: Props) {
     }
     setRegistrationCompleted(false);
     resetTransientForm();
-    track("registration_reset", qrParams);
   };
 
 
@@ -309,7 +290,6 @@ export function ChatbotPanel({ qrParams }: Props) {
       <button
         onClick={() => {
           openCleanPanel();
-          track("panel_restored", qrParams);
         }}
         aria-label="Registrar mi mascota y obtener 10% de descuento"
         className="fixed bottom-5 right-5 z-50 group flex items-center gap-3"
@@ -373,7 +353,6 @@ export function ChatbotPanel({ qrParams }: Props) {
           aria-label="Cerrar panel"
           onClick={() => {
             setMinimized(true);
-            track("panel_minimized", qrParams);
           }}
           className="rounded p-1.5 hover:bg-muted text-muted-foreground"
         >
@@ -617,7 +596,6 @@ export function ChatbotPanel({ qrParams }: Props) {
           submitting={submitting}
           onStart={startFlow}
           onNext={(next) => {
-            if (next === "consents") track("lead_form_viewed", qrParams);
             goto(next);
           }}
           onSubmitRegistration={() => {

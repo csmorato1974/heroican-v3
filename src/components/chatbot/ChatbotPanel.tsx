@@ -73,6 +73,7 @@ export function ChatbotPanel({ qrParams }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  const [submittedLeadId, setSubmittedLeadId] = useState<string | null>(null);
 
   // Solo persiste si el usuario ya completó el registro. El formulario en
   // progreso vive únicamente en React state y siempre inicia limpio.
@@ -90,6 +91,7 @@ export function ChatbotPanel({ qrParams }: Props) {
     setErrors({});
     setCoords(undefined);
     setSubmitting(false);
+    setSubmittedLeadId(null);
     setStep("welcome");
   };
 
@@ -159,12 +161,6 @@ export function ChatbotPanel({ qrParams }: Props) {
   const submitRegistration = async () => {
     if (submitting) return;
 
-    // Abrir pestaña placeholder SINCRÓNICAMENTE para preservar user gesture
-    // (evita que el popup blocker bloquee window.open tras los await).
-    const waTab =
-      typeof window !== "undefined" ? window.open("", "_blank") : null;
-    if (waTab) waTab.opener = null;
-
     const formForSubmit = {
       ...leadForm,
       tutorName: leadForm.tutorName.trim(),
@@ -178,16 +174,27 @@ export function ChatbotPanel({ qrParams }: Props) {
         e[i.path[0] as string] = i.message;
       });
       setErrors(e);
-      if (waTab && !waTab.closed) waTab.close();
+      const firstMessage = parsed.error.issues[0]?.message;
+      if (firstMessage) toast.error(firstMessage);
+      if (e.tutorName || e.phone || e.city) goto("tutor");
       return;
     }
     setErrors({});
     if (!answers.petName || !answers.lifeStage || !answers.breedSize) {
-      if (waTab && !waTab.closed) waTab.close();
+      toast.error("Completa los datos de tu mascota antes de generar el descuento.");
+      if (!answers.petName) goto("petName");
+      else if (!answers.lifeStage) goto("lifeStage");
+      else goto("breedSize");
       return;
     }
 
     setSubmitting(true);
+
+    // Abrir pestaña placeholder SINCRÓNICAMENTE después de validar para preservar
+    // el gesto del usuario sin dejar pestañas vacías cuando hay errores.
+    const waTab =
+      typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (waTab) waTab.opener = null;
 
     // 1) Geolocalización condicional (solo al enviar)
     let lat: number | null = null;
@@ -236,6 +243,7 @@ export function ChatbotPanel({ qrParams }: Props) {
 
       if (error) throw error;
       leadId = clientLeadId;
+      setSubmittedLeadId(clientLeadId);
     } catch (err) {
       const msg =
         err && typeof err === "object" && "message" in err
@@ -243,6 +251,9 @@ export function ChatbotPanel({ qrParams }: Props) {
           : String(err);
       console.error("[pet_registrations] insert failed", err);
       toast.error(`No pudimos guardar tu registro: ${msg}`);
+      if (waTab && !waTab.closed) waTab.close();
+      setSubmitting(false);
+      return;
     }
 
     // 4) Construir URL de WhatsApp con Lead ID y abrir
@@ -282,6 +293,7 @@ export function ChatbotPanel({ qrParams }: Props) {
       petName: answers.petName,
       lifeStage: answers.lifeStage,
       breedSize: answers.breedSize,
+      leadId: submittedLeadId,
     });
     openWhatsappUrl(url);
   };
@@ -306,6 +318,7 @@ export function ChatbotPanel({ qrParams }: Props) {
     const started = !registrationCompleted && progressIndex > 0;
     return (
       <button
+        type="button"
         onClick={() => {
           openCleanPanel();
         }}
@@ -346,6 +359,7 @@ export function ChatbotPanel({ qrParams }: Props) {
       <div className="flex items-center gap-3 border-b border-border px-4 py-3 bg-secondary/50">
         {step !== "welcome" && step !== "success" && (
           <button
+            type="button"
             aria-label="Atrás"
             onClick={() => {
               const i = ORDER.indexOf(step);
@@ -368,6 +382,7 @@ export function ChatbotPanel({ qrParams }: Props) {
           </p>
         </div>
         <button
+          type="button"
           aria-label="Cerrar panel"
           onClick={() => {
             setMinimized(true);
@@ -658,6 +673,7 @@ function OptionGrid({
     <div className="grid gap-2">
       {options.map((o) => (
         <button
+          type="button"
           key={o}
           onClick={() => onSelect(o)}
           className={`text-left rounded-2xl border px-4 py-3 transition text-sm font-semibold ${
@@ -718,13 +734,14 @@ function FooterActions({
 
   if (step === "welcome")
     return (
-      <Button className={cta} onClick={onStart}>
+      <Button type="button" className={cta} onClick={onStart}>
         Registrar y obtener 10% dto. →
       </Button>
     );
   if (step === "petName")
     return (
       <Button
+        type="button"
         className={cta}
         disabled={!answers.petName?.trim()}
         onClick={() => onNext("lifeStage")}
@@ -735,6 +752,7 @@ function FooterActions({
   if (step === "lifeStage")
     return (
       <Button
+        type="button"
         className={cta}
         disabled={!answers.lifeStage}
         onClick={() => onNext("breedSize")}
@@ -745,6 +763,7 @@ function FooterActions({
   if (step === "breedSize")
     return (
       <Button
+        type="button"
         className={cta}
         disabled={!answers.breedSize}
         onClick={() => onNext("tutor")}
@@ -759,6 +778,7 @@ function FooterActions({
       leadForm.city.trim().length >= 2;
     return (
       <Button
+        type="button"
         className={cta}
         disabled={!ready}
         onClick={() => onNext("consents")}
@@ -768,18 +788,11 @@ function FooterActions({
     );
   }
   if (step === "consents") {
-    const consentsReady =
-      !!leadForm.consentWhatsApp &&
-      !!leadForm.consentTerms &&
-      !!leadForm.consentData &&
-      !!answers.petName &&
-      !!answers.lifeStage &&
-      !!answers.breedSize;
-
     return (
       <Button
+        type="button"
         className={cta}
-        disabled={!consentsReady || submitting}
+        disabled={submitting}
         onClick={onSubmitRegistration}
       >
         {submitting ? (
@@ -797,6 +810,7 @@ function FooterActions({
       <div className="space-y-2">
         {answers.petName && (
           <Button
+            type="button"
             className="w-full rounded-full h-11 font-bold bg-[#25D366] text-white hover:bg-[#1ebe57]"
             onClick={onOpenWhatsapp}
           >
@@ -805,6 +819,7 @@ function FooterActions({
           </Button>
         )}
         <Button
+          type="button"
           variant="outline"
           className="w-full rounded-full h-10 font-semibold"
           onClick={onReset}

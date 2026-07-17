@@ -40,8 +40,8 @@ const ORDER: Step[] = [
   "success",
 ];
 
-const SESSION_KEY = "heroican.session";
-const MINIMIZED_KEY = "heroican.panel.minimized";
+const REGISTRATION_COMPLETED_KEY = "heroican.registration.completed";
+const LEGACY_SESSION_KEY = "heroican.session";
 
 interface LeadForm {
   tutorName: string;
@@ -63,38 +63,6 @@ const DEFAULT_LEAD_FORM: LeadForm = {
   consentLocation: false,
 };
 
-interface Persisted {
-  step: Step;
-  answers: SessionAnswers;
-  leadForm: LeadForm;
-}
-
-function loadPersisted(defaultCity: string): Persisted {
-  const base: Persisted = {
-    step: "welcome",
-    answers: {},
-    leadForm: { ...DEFAULT_LEAD_FORM, city: defaultCity },
-  };
-  if (typeof window === "undefined") return base;
-  try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
-    if (!raw) return base;
-    const parsed = JSON.parse(raw) as Partial<Persisted>;
-    // Merge con defaults: si faltan campos nuevos en sesiones antiguas,
-    // se completan en lugar de descartar todo el blob.
-    const validStep = (ORDER as string[]).includes(parsed.step as string)
-      ? (parsed.step as Step)
-      : "welcome";
-    return {
-      step: validStep,
-      answers: { ...base.answers, ...(parsed.answers ?? {}) },
-      leadForm: { ...base.leadForm, ...(parsed.leadForm ?? {}) },
-    };
-  } catch {
-    return base;
-  }
-}
-
 export function ChatbotPanel({ qrParams }: Props) {
   const [step, setStep] = useState<Step>("welcome");
   const [answers, setAnswers] = useState<SessionAnswers>({});
@@ -103,51 +71,50 @@ export function ChatbotPanel({ qrParams }: Props) {
     city: qrParams.ciudad_url ?? "",
   }));
   const [minimized, setMinimized] = useState(true);
-  const [hydrated, setHydrated] = useState(false);
+  const [registrationCompleted, setRegistrationCompleted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>();
   const [submitting, setSubmitting] = useState(false);
 
-  // Hydrate persisted state client-side only (avoids SSR mismatch)
-  useEffect(() => {
-    const p = loadPersisted(qrParams.ciudad_url ?? "");
-    setStep(p.step);
-    setAnswers(p.answers);
-    setLeadForm(p.leadForm);
-    setHydrated(true);
-  }, [qrParams.ciudad_url]);
-
-  // Persist
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(
-      SESSION_KEY,
-      JSON.stringify({ step, answers, leadForm }),
-    );
-  }, [hydrated, step, answers, leadForm]);
-
+  // Solo persiste si el usuario ya completó el registro. El formulario en
+  // progreso vive únicamente en React state y siempre inicia limpio.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(MINIMIZED_KEY);
-    setMinimized(stored !== "0");
+    window.localStorage.removeItem(LEGACY_SESSION_KEY);
+    const completed = window.localStorage.getItem(REGISTRATION_COMPLETED_KEY) === "1";
+    setRegistrationCompleted(completed);
+    if (completed) setStep("success");
     track("landing_panel_mounted", qrParams);
   }, [qrParams]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(MINIMIZED_KEY, minimized ? "1" : "0");
-  }, [minimized]);
+  const resetTransientForm = () => {
+    setAnswers({});
+    setLeadForm({ ...DEFAULT_LEAD_FORM, city: qrParams.ciudad_url ?? "" });
+    setErrors({});
+    setCoords(undefined);
+    setSubmitting(false);
+    setStep("welcome");
+  };
+
+  const openCleanPanel = () => {
+    if (registrationCompleted) {
+      setStep("success");
+    } else {
+      resetTransientForm();
+    }
+    setMinimized(false);
+  };
 
   // Apertura desde el hero u otros CTAs
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handler = () => {
-      setMinimized(false);
+      openCleanPanel();
       track("panel_opened_external", qrParams);
     };
     window.addEventListener("heroican:open-chatbot", handler);
     return () => window.removeEventListener("heroican:open-chatbot", handler);
-  }, [qrParams]);
+  }, [qrParams, registrationCompleted]);
 
   const goto = (s: Step) => setStep(s);
   const answer = (
@@ -322,6 +289,11 @@ export function ChatbotPanel({ qrParams }: Props) {
     });
 
     setSubmitting(false);
+    setRegistrationCompleted(true);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(REGISTRATION_COMPLETED_KEY, "1");
+      window.localStorage.removeItem(LEGACY_SESSION_KEY);
+    }
     goto("success");
     openWhatsappUrl(url);
   };
@@ -343,14 +315,11 @@ export function ChatbotPanel({ qrParams }: Props) {
 
   const resetFlow = () => {
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(SESSION_KEY);
+      window.localStorage.removeItem(REGISTRATION_COMPLETED_KEY);
+      window.localStorage.removeItem(LEGACY_SESSION_KEY);
     }
-    setAnswers({});
-    setLeadForm({ ...DEFAULT_LEAD_FORM, city: qrParams.ciudad_url ?? "" });
-    setErrors({});
-    setCoords(undefined);
-    setSubmitting(false);
-    setStep("welcome");
+    setRegistrationCompleted(false);
+    resetTransientForm();
     track("registration_reset", qrParams);
   };
 
@@ -362,20 +331,22 @@ export function ChatbotPanel({ qrParams }: Props) {
 
   // ===== Floating dog-bot button =====
   if (minimized) {
-    const started = progressIndex > 0;
+    const started = !registrationCompleted && progressIndex > 0;
     return (
       <button
         onClick={() => {
-          setMinimized(false);
+          openCleanPanel();
           track("panel_restored", qrParams);
         }}
         aria-label="Registrar mi mascota y obtener 10% de descuento"
         className="fixed bottom-5 right-5 z-50 group flex items-center gap-3"
       >
         <span className="hidden sm:flex items-center rounded-2xl rounded-br-sm border border-border bg-card/95 backdrop-blur px-3 py-2 text-xs font-semibold text-foreground shadow-md group-hover:-translate-x-0.5 transition-transform">
-          {started
-            ? `Continuar registro · ${progressPct}%`
-            : "Regístrala y obtén 10% dto."}
+          {registrationCompleted
+            ? "¡Ya estás registrado!"
+            : started
+              ? `Continuar registro · ${progressPct}%`
+              : "Regístrala y obtén 10% dto."}
         </span>
         <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg group-hover:scale-105 transition-transform">
           <Dog className="h-8 w-8" strokeWidth={2.2} />
@@ -637,11 +608,19 @@ export function ChatbotPanel({ qrParams }: Props) {
 
         {step === "success" && (
           <>
-            <Bubble>
-              🎉 ¡Listo, <strong>{answers.petName}</strong> quedó registrada!
-              Tu <strong className="text-primary">10% de descuento</strong> te
-              espera por WhatsApp.
-            </Bubble>
+            {answers.petName ? (
+              <Bubble>
+                🎉 ¡Listo, <strong>{answers.petName}</strong> quedó registrada!
+                Tu <strong className="text-primary">10% de descuento</strong> te
+                espera por WhatsApp.
+              </Bubble>
+            ) : (
+              <Bubble>
+                🎉 ¡Ya estás registrado! Tu{" "}
+                <strong className="text-primary">10% de descuento</strong> ya fue
+                generado.
+              </Bubble>
+            )}
             <div className="brand-card rounded-md p-4 text-sm space-y-2">
               <p>
                 Presiona el botón para abrir WhatsApp con el equipo Heroican y

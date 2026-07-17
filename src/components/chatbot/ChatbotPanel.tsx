@@ -73,6 +73,7 @@ export function ChatbotPanel({ qrParams }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  const [submittedLeadId, setSubmittedLeadId] = useState<string | null>(null);
 
   // Solo persiste si el usuario ya completó el registro. El formulario en
   // progreso vive únicamente en React state y siempre inicia limpio.
@@ -90,6 +91,7 @@ export function ChatbotPanel({ qrParams }: Props) {
     setErrors({});
     setCoords(undefined);
     setSubmitting(false);
+    setSubmittedLeadId(null);
     setStep("welcome");
   };
 
@@ -172,11 +174,17 @@ export function ChatbotPanel({ qrParams }: Props) {
         e[i.path[0] as string] = i.message;
       });
       setErrors(e);
+      const firstMessage = parsed.error.issues[0]?.message;
+      if (firstMessage) toast.error(firstMessage);
+      if (e.tutorName || e.phone || e.city) goto("tutor");
       return;
     }
     setErrors({});
     if (!answers.petName || !answers.lifeStage || !answers.breedSize) {
       toast.error("Completa los datos de tu mascota antes de generar el descuento.");
+      if (!answers.petName) goto("petName");
+      else if (!answers.lifeStage) goto("lifeStage");
+      else goto("breedSize");
       return;
     }
 
@@ -235,6 +243,7 @@ export function ChatbotPanel({ qrParams }: Props) {
 
       if (error) throw error;
       leadId = clientLeadId;
+      setSubmittedLeadId(clientLeadId);
     } catch (err) {
       const msg =
         err && typeof err === "object" && "message" in err
@@ -284,6 +293,7 @@ export function ChatbotPanel({ qrParams }: Props) {
       petName: answers.petName,
       lifeStage: answers.lifeStage,
       breedSize: answers.breedSize,
+      leadId: submittedLeadId,
     });
     openWhatsappUrl(url);
   };
@@ -724,7 +734,7 @@ function FooterActions({
 
   if (step === "welcome")
     return (
-      <Button className={cta} onClick={onStart}>
+      <Button type="button" className={cta} onClick={onStart}>
         Registrar y obtener 10% dto. →
       </Button>
     );

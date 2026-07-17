@@ -5,8 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, MessageCircle, X, Dog, Gift, Loader2 } from "lucide-react";
-import { track, getSessionId } from "@/lib/tracker";
-import { saveLead } from "@/lib/leads";
+import { track } from "@/lib/tracker";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
 import { leadSchema, normalizePhoneInput } from "@/lib/validators";
 import { supabase } from "@/integrations/supabase/client";
@@ -241,32 +240,6 @@ export function ChatbotPanel({ qrParams }: Props) {
           : String(err);
       console.error("[pet_registrations] insert failed", err);
       toast.error(`No pudimos guardar tu registro: ${msg}`);
-    }
-
-    // 3) Guardado local (no bloqueante)
-    try {
-      saveLead({
-        id: leadId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : Math.random().toString(36).slice(2)),
-        sessionId: getSessionId(),
-        tutorName: parsed.data.tutorName,
-        phone: parsed.data.phone,
-        city: parsed.data.city,
-        petName: answers.petName,
-        lifeStage: answers.lifeStage,
-        breedSize: answers.breedSize,
-        needs: [],
-        recommendedProduct: "Registro promocional 10%",
-        consentWhatsApp: true,
-        consentLocation: !!leadForm.consentLocation,
-        locationLat: lat ?? undefined,
-        locationLng: lng ?? undefined,
-        createdAt: new Date().toISOString(),
-        qrParams,
-      });
-    } catch {
-      // ignore
     }
 
     try {

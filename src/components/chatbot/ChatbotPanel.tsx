@@ -158,6 +158,13 @@ export function ChatbotPanel({ qrParams }: Props) {
 
   const submitRegistration = async () => {
     if (submitting) return;
+
+    // Abrir pestaña placeholder SINCRÓNICAMENTE para preservar user gesture
+    // (evita que el popup blocker bloquee window.open tras los await).
+    const waTab =
+      typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (waTab) waTab.opener = null;
+
     const formForSubmit = {
       ...leadForm,
       tutorName: leadForm.tutorName.trim(),
@@ -171,10 +178,14 @@ export function ChatbotPanel({ qrParams }: Props) {
         e[i.path[0] as string] = i.message;
       });
       setErrors(e);
+      if (waTab && !waTab.closed) waTab.close();
       return;
     }
     setErrors({});
-    if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;
+    if (!answers.petName || !answers.lifeStage || !answers.breedSize) {
+      if (waTab && !waTab.closed) waTab.close();
+      return;
+    }
 
     setSubmitting(true);
 
@@ -252,8 +263,15 @@ export function ChatbotPanel({ qrParams }: Props) {
       window.localStorage.removeItem(LEGACY_SESSION_KEY);
     }
     goto("success");
-    openWhatsappUrl(url);
+
+    // Redirigir la pestaña abierta al inicio; si el navegador la bloqueó, hacer fallback.
+    if (waTab && !waTab.closed) {
+      waTab.location.href = url;
+    } else {
+      window.location.assign(url);
+    }
   };
+
 
   const openWhatsapp = () => {
     if (!answers.petName || !answers.lifeStage || !answers.breedSize) return;

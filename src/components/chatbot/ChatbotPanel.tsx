@@ -727,6 +727,7 @@ function FooterActions({
   step,
   answers,
   leadForm,
+  submitting,
   onStart,
   onNext,
   onSubmitRegistration,
@@ -735,9 +736,10 @@ function FooterActions({
   step: Step;
   answers: SessionAnswers;
   leadForm: LeadForm;
+  submitting: boolean;
   onStart: () => void;
   onNext: (s: Step) => void;
-  onSubmitRegistration: (navigateToWhatsapp?: boolean) => void;
+  onSubmitRegistration: () => void;
   onOpenWhatsapp: () => void;
 }) {
   const cta =

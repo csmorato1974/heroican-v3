@@ -1,52 +1,30 @@
-## Problema detectado
+## Diagnóstico
 
-1. **Pestaña `about:blank` visible**: abrimos `window.open("", "_blank")` sincrónicamente y luego, tras los `await` (geolocalización + insert Supabase), intentamos redirigirla con `waTab.location.href = url`. El navegador pierde la relación cross-origin y bloquea la asignación (runtime error: *"does not have permission to navigate the target frame to https://wa.me/..."*), dejando al usuario mirando `about:blank`.
-2. **Geolocalización sin permiso**: `getGeolocation()` se llama después del `window.open`, ya dentro de una cadena `async`. En algunos navegadores móviles esto rompe la "user activation" y el prompt nativo nunca aparece → siempre cae a `not_requested`/`denied` silencioso.
+Revisé la tabla `pet_analysis_events` en la base de datos y sí está recibiendo actividad reciente:
 
-## Plan de corrección (solo `src/components/chatbot/ChatbotPanel.tsx`)
+- `started`: 24 eventos, último hoy 05:37 UTC
+- `success`: 24 eventos, último hoy 05:37 UTC
+- `whatsapp_clicked`: 7 eventos, **último el 17/07 a las 02:20 UTC** — estancado
 
-1. **Eliminar la pestaña placeholder `about:blank`**
-   - Quitar `window.open("", "_blank")` y toda la lógica de `waTab`.
-   - Al terminar el guardado, navegar en la misma pestaña con `window.location.href = url`. WhatsApp Web/App maneja bien esta navegación y evita el bloqueo de popups y el error de permisos.
+El flujo "iniciar cámara" y "análisis exitoso" sigue registrándose sin problema. Lo que dejó de registrarse es la **conversión final**, y la causa es un cambio de UX previo:
 
-2. **Pedir geolocalización de forma sincrónica dentro del gesto**
-   - Al hacer clic en "Generar mi 10% de descuento", si `consentLocation` está marcado, invocar `navigator.geolocation.getCurrentPosition(...)` **antes de cualquier `await`**, envuelto en una `Promise` local.
-   - Hacer un `Promise.allSettled([geoPromise, insertPromise])` o esperar primero la geolocalización (con timeout corto ~8s) y luego el insert. Así el prompt de permisos aparece inmediatamente ligado al gesto del usuario.
-   - Detectar `PERMISSION_DENIED`, `POSITION_UNAVAILABLE` y `TIMEOUT` con mensajes de estado claros (`granted` / `denied` / `unsupported`). Si el usuario deniega o expira, continuar el flujo sin coordenadas (no bloquear el registro).
+- Antes, en el resultado del análisis se mostraba un CTA "Compartir por WhatsApp" que llamaba a `trackPetEvent("whatsapp_clicked", …)`.
+- Ahora, `PetInsightCard` muestra un CTA que lleva directo a la tienda / producto recomendado (`recommendation.productUrl`). El `onClick` solo llama a `track("pet_recommendation_clicked", …)`, que escribe en `localStorage` vía `src/lib/tracker.ts` — nunca llega a Supabase.
 
-3. **Usar el Lead ID recién generado, no el estado previo**
-   - Corregir el bug donde `buildRegistrationWhatsappUrl` recibe `submittedLeadId` (aún `null` en ese tick) en vez del `clientLeadId` acabado de insertar. Pasar `leadId: clientLeadId` directamente.
+Resultado: en el panel se ve como si "ya no llega actividad de conversión", aunque las etapas iniciales sí llegan.
 
-4. **Feedback visual mientras se pide permiso**
-   - Mantener `submitting = true` durante la solicitud de geolocalización y el insert, con el texto "Guardando..." ya existente, para que no se sienta como "delay muerto".
+## Cambios propuestos
 
-5. **Verificación**
-   - Reproducir con Playwright: clic en CTA → confirmar que **no** aparece `about:blank`, que el insert a `pet_registrations` devuelve 201, y que la navegación final es directa a `wa.me/...` con el `Lead ID` correcto.
-   - Verificar en consola que ya no aparece el error *"Failed to set the 'href' property on 'Location'"*.
+1. **Registrar el clic del CTA de recomendación en Supabase.**
+   - En `src/components/blueprint/BlueprintCamera.tsx`, dentro del `onProductClick` que ya se pasa a `PetInsightCard`, añadir una llamada a `trackPetEvent("whatsapp_clicked", { detected_animal, size_guess, recommended_focus, fallback_used })` además del `track()` local existente.
+   - Se reusa el `event_type = "whatsapp_clicked"` (que en la práctica ya representa "conversión final del flujo cámara") para no romper el enum de la tabla ni requerir migración.
 
-### Detalles técnicos
+2. **Mantener el tracking de WhatsApp existente** en `shareWhatsapp` y `shareWhatsappWithInsight` sin cambios — si el usuario aún usa esos botones, se registran igual.
 
-```ts
-// Pseudocódigo del nuevo submitRegistration
-const geoPromise: Promise<GeoResult> = leadForm.consentLocation
-  ? new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve({ status: "unsupported", lat: null, lng: null });
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ status: "granted", lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => resolve({ status: err.code === err.PERMISSION_DENIED ? "denied" : "not_requested", lat: null, lng: null }),
-        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-      );
-    })
-  : Promise.resolve({ status: "not_requested", lat: null, lng: null });
+3. **Verificar** con una nueva consulta a `pet_analysis_events` que después del cambio vuelven a aparecer eventos de conversión con `max(created_at)` reciente.
 
-const geo = await geoPromise;                       // ligado al gesto
-const { error } = await supabase.from(...).insert({ ... });
-if (error) { toast.error(...); setSubmitting(false); return; }
+## Fuera de alcance
 
-setSubmittedLeadId(clientLeadId);
-setRegistrationCompleted(true);
-goto("success");
-window.location.href = buildRegistrationWhatsappUrl({ ..., leadId: clientLeadId });
-```
-
-Sin cambios en Supabase, validators, ni otros componentes.
+- No se toca la tabla `pet_registrations` (registro del asistente): tiene 12 filas, última hoy 04:52 UTC, funciona bien.
+- No se modifican políticas RLS ni el endpoint `/api/public/pet-event`.
+- No se agrega un nuevo `event_type` al enum para evitar migración; si más adelante quieres separar "clic recomendación" de "clic WhatsApp", lo hacemos en un cambio posterior.

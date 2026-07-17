@@ -255,6 +255,13 @@ export function BlueprintCamera({ open, onOpenChange, qrParams }: Props) {
                     recommended_focus:
                       analysis.result.analysis.recommended_focus,
                   });
+                  trackPetEvent("whatsapp_clicked", {
+                    detected_animal: analysis.result.analysis.detected_animal,
+                    size_guess: analysis.result.analysis.size_guess,
+                    recommended_focus:
+                      analysis.result.analysis.recommended_focus,
+                    fallback_used: analysis.result.fallback,
+                  });
                 }}
               />
             )}

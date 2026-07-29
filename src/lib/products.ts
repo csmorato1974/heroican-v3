@@ -62,8 +62,7 @@ export const PRODUCTS: Product[] = [
       { sizeKg: 15, pricePen: 120 },
     ],
     benefits: ["Soporte de crecimiento", "Leche incluida", "Canela funcional"],
-    ingredientsSummary:
-      "Base nutricional con proteína, cereales, hidrolizados, leche, vitaminas, minerales y canela.",
+    ingredientsSummary: ".",
     storeUrl: STORE_URL,
     nutrition: {
       proteina: "26% mín.",
@@ -85,8 +84,7 @@ export const PRODUCTS: Product[] = [
       { sizeKg: 15, pricePen: 120 },
     ],
     benefits: ["Crecimiento saludable", "Hidrolizados palatables", "Leche incluida"],
-    ingredientsSummary:
-      "Maíz, arroz, harina de carne, harina de pescado, trigo, torta de soja, aceite de pollo, hidrolizado enzimático de hígado de pollo, leche, premezcla vitamínico mineral, canela, DL metionina.",
+    ingredientsSummary: "\n",
     storeUrl: STORE_URL,
     nutrition: {
       proteina: "28% mín.",

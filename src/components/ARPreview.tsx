@@ -4,7 +4,7 @@ import { Camera } from "lucide-react";
 import { track } from "@/lib/tracker";
 import { BlueprintCamera } from "./blueprint/BlueprintCamera";
 import type { QrParams } from "@/types/domain";
-import heroicanPack from "@/assets/heroican-ar-phone.png.asset.json";
+import heroicanPack from "@/assets/heroican-ar-phone-v2.png.asset.json";
 
 const facets = [
   { title: "Confort digestivo", desc: "Tránsito tranquilo, gases bajo control." },

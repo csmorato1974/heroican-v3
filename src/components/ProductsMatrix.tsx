@@ -86,7 +86,7 @@ export function ProductsMatrix() {
             Maíz, arroz, harina de carne, harina de pescado, trigo, torta de soya, aceite de pollo, hidrolizado enzimático de hígado de pollo, premezcla vitamínico-mineral, canela y DL-metionina.
           </p>
           <p className="mt-4 text-sm text-foreground/70 leading-relaxed">
-            Heroican combina proteína animal de alta digestibilidad con cereales seleccionados y aditivos funcionales, aportando un equilibrio completo de proteínas, grasas, fibra y minerales en todas sus presentaciones. Los valores nutricionales (proteína, grasa, fibra, humedad, ceniza, calcio y fósforo) varían levemente según la etapa de vida y el tamaño de raza, pero la fórmula base y sus ingredientes son los mismos en todo el portafolio.
+            Heroican combina proteína animal de alta digestibilidad con cereales seleccionados y aditivos funcionales, aportando un equilibrio completo de proteínas, grasas, fibra y minerales en todas sus presentaciones. Los valores nutricionales (proteína, grasa, fibra, humedad, ceniza, calcio y fósforo) varían levemente según la etapa de vida y el tamaño de la raza.
           </p>
         </div>
 

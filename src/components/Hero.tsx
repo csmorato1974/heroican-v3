@@ -64,7 +64,11 @@ export function Hero({ qrParams: _qrParams }: Props) {
                 Hecho en Tacna
               </span>
             </div>
+            <p className="mt-4 text-center text-sm font-semibold uppercase tracking-wide text-primary sm:text-base">
+              Ahora también nos encuentran en Moquegua y Arequipa
+            </p>
           </div>
+
         </div>
       </div>
       <span className="gold-rule" aria-hidden />

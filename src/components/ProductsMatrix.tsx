@@ -73,12 +73,23 @@ export function ProductsMatrix() {
                 </div>
               )}
 
-              <p className="mt-5 text-xs text-foreground/60 leading-relaxed">
-                {p.ingredientsSummary}
-              </p>
             </article>
           ))}
         </div>
+
+        <div className="mt-12 brand-card p-6 sm:p-8">
+          <span className="gold-rule block" aria-hidden />
+          <p className="mt-4 font-display text-[11px] font-black uppercase tracking-[0.15em] text-accent">
+            Ingredientes
+          </p>
+          <p className="mt-3 text-sm text-foreground/80 leading-relaxed">
+            Maíz, arroz, harina de carne, harina de pescado, trigo, torta de soya, aceite de pollo, hidrolizado enzimático de hígado de pollo, premezcla vitamínico-mineral, canela y DL-metionina.
+          </p>
+          <p className="mt-4 text-sm text-foreground/70 leading-relaxed">
+            Heroican combina proteína animal de alta digestibilidad con cereales seleccionados y aditivos funcionales, aportando un equilibrio completo de proteínas, grasas, fibra y minerales en todas sus presentaciones. Los valores nutricionales (proteína, grasa, fibra, humedad, ceniza, calcio y fósforo) varían levemente según la etapa de vida y el tamaño de raza, pero la fórmula base y sus ingredientes son los mismos en todo el portafolio.
+          </p>
+        </div>
+
       </div>
     </section>
   );

@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { readEvents, clearEvents } from "@/lib/tracker";
 import { readLeads } from "@/lib/leads";
+import { getAiUsageSummary } from "@/lib/api/aiUsage.functions";
+import type { AiUsageSummary } from "@/lib/aiUsageSummary.server";
 import type { Lead, TrackedEvent } from "@/types/domain";
 
 export const Route = createFileRoute("/metrics")({

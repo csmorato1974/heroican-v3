@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_events: {
+        Row: {
+          completion_tokens: number
+          created_at: string
+          error_status: string | null
+          fallback: boolean
+          id: string
+          latency_ms: number | null
+          model: string
+          prompt_tokens: number
+          provider: string
+          request_id: string | null
+          route: string
+          success: boolean
+          total_tokens: number
+        }
+        Insert: {
+          completion_tokens?: number
+          created_at?: string
+          error_status?: string | null
+          fallback?: boolean
+          id?: string
+          latency_ms?: number | null
+          model: string
+          prompt_tokens?: number
+          provider?: string
+          request_id?: string | null
+          route: string
+          success?: boolean
+          total_tokens?: number
+        }
+        Update: {
+          completion_tokens?: number
+          created_at?: string
+          error_status?: string | null
+          fallback?: boolean
+          id?: string
+          latency_ms?: number | null
+          model?: string
+          prompt_tokens?: number
+          provider?: string
+          request_id?: string | null
+          route?: string
+          success?: boolean
+          total_tokens?: number
+        }
+        Relationships: []
+      }
       pet_analysis_events: {
         Row: {
           campaign: string | null

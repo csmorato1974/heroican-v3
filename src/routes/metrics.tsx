@@ -262,3 +262,48 @@ function Card({ label, value }: { label: string; value: number | string }) {
     </div>
   );
 }
+
+function UsageTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { key: string; calls: number; tokens: number; cost: number; priced: boolean }[];
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <h3 className="px-3 py-2 text-sm font-semibold bg-muted">{title}</h3>
+      <table className="w-full text-xs">
+        <thead className="text-left text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2">Clave</th>
+            <th className="px-3 py-2">Llamadas</th>
+            <th className="px-3 py-2">Tokens</th>
+            <th className="px-3 py-2">Coste</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key} className="border-t border-border">
+              <td className="px-3 py-2 font-mono break-all">{r.key}</td>
+              <td className="px-3 py-2">{r.calls}</td>
+              <td className="px-3 py-2">{r.tokens.toLocaleString("en-US")}</td>
+              <td className="px-3 py-2">
+                {r.priced
+                  ? `$${r.cost.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`
+                  : "precio no configurado"}
+              </td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                Sin datos.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}

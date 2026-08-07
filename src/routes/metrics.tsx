@@ -28,13 +28,23 @@ function download(filename: string, data: unknown) {
   URL.revokeObjectURL(url);
 }
 
+const usd = (n: number) =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: n < 1 ? 4 : 2, maximumFractionDigits: n < 1 ? 6 : 2 })}`;
+
 function Metrics() {
   const [events, setEvents] = useState<TrackedEvent[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [usage, setUsage] = useState<AiUsageSummary | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
 
   useEffect(() => {
     setEvents(readEvents());
     setLeads(readLeads());
+    getAiUsageSummary()
+      .then((data) => setUsage(data as AiUsageSummary))
+      .catch((err: unknown) =>
+        setUsageError(err instanceof Error ? err.message : "Error desconocido"),
+      );
   }, []);
 
   const sessions = new Set(events.map((e) => e.sessionId)).size;

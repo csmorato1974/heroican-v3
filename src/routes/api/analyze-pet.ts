@@ -171,6 +171,30 @@ export const Route = createFileRoute("/api/analyze-pet")({
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 12_000);
+        const startedAt = Date.now();
+        const MODEL = "gpt-4o-mini";
+        const { recordAiUsage } = await import("@/lib/aiUsage.server");
+        const track = (opts: {
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+          success: boolean;
+          fallback: boolean;
+          errorStatus?: string | null;
+          requestId?: string | null;
+        }) =>
+          recordAiUsage({
+            model: MODEL,
+            route: "/api/analyze-pet",
+            promptTokens: opts.promptTokens ?? 0,
+            completionTokens: opts.completionTokens ?? 0,
+            totalTokens: opts.totalTokens ?? 0,
+            latencyMs: Date.now() - startedAt,
+            success: opts.success,
+            fallback: opts.fallback,
+            errorStatus: opts.errorStatus ?? null,
+            requestId: opts.requestId ?? null,
+          });
 
         try {
           const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -181,7 +205,7 @@ export const Route = createFileRoute("/api/analyze-pet")({
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-              model: "gpt-4o-mini",
+              model: MODEL,
               temperature: 0.4,
               max_tokens: 350,
               response_format: {
@@ -208,26 +232,62 @@ export const Route = createFileRoute("/api/analyze-pet")({
             }),
           });
 
-          if (!res.ok) return fallbackResponse();
+          const requestId = res.headers.get("x-request-id");
+
+          if (!res.ok) {
+            await track({
+              success: false,
+              fallback: true,
+              errorStatus: String(res.status),
+              requestId,
+            });
+            return fallbackResponse();
+          }
 
           const data = (await res.json()) as {
             choices?: Array<{ message?: { content?: string } }>;
+            usage?: {
+              prompt_tokens?: number;
+              completion_tokens?: number;
+              total_tokens?: number;
+            };
           };
+          const usage = {
+            promptTokens: data?.usage?.prompt_tokens ?? 0,
+            completionTokens: data?.usage?.completion_tokens ?? 0,
+            totalTokens: data?.usage?.total_tokens ?? 0,
+            requestId,
+          };
+
           const content = data?.choices?.[0]?.message?.content;
-          if (!content) return fallbackResponse();
+          if (!content) {
+            await track({ ...usage, success: true, fallback: true, errorStatus: "empty_content" });
+            return fallbackResponse();
+          }
 
           let parsed: unknown;
           try {
             parsed = JSON.parse(content);
           } catch {
+            await track({ ...usage, success: true, fallback: true, errorStatus: "invalid_json" });
             return fallbackResponse();
           }
 
           const safe = AnalysisSchema.safeParse(parsed);
-          if (!safe.success) return fallbackResponse();
+          if (!safe.success) {
+            await track({ ...usage, success: true, fallback: true, errorStatus: "schema_mismatch" });
+            return fallbackResponse();
+          }
 
+          await track({ ...usage, success: true, fallback: false });
           return jsonResponse({ ok: true, analysis: safe.data });
-        } catch {
+        } catch (err) {
+          await track({
+            success: false,
+            fallback: true,
+            errorStatus:
+              err instanceof Error && err.name === "AbortError" ? "timeout" : "network_error",
+          });
           return fallbackResponse();
         } finally {
           clearTimeout(timeout);

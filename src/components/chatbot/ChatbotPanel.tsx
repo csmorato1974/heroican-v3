@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, MessageCircle, X, Dog, Gift, Loader2 } from "lucide-react";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
 import { leadSchema, normalizePhoneInput } from "@/lib/validators";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/heroican/client";
 import {
   type BreedSize,
   type LifeStage,

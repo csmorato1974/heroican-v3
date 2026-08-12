@@ -17,7 +17,7 @@ export interface AiUsageRecord {
 export async function recordAiUsage(record: AiUsageRecord): Promise<void> {
   try {
     const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
+      "@/integrations/heroican/client.server"
     );
     const prompt = Math.max(0, Math.round(record.promptTokens ?? 0));
     const completion = Math.max(0, Math.round(record.completionTokens ?? 0));

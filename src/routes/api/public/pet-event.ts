@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/public/pet-event")({
             return new Response(null, { status: 204 });
           }
           const { supabaseAdmin } = await import(
-            "@/integrations/supabase/client.server"
+            "@/integrations/heroican/client.server"
           );
           const { error } = await supabaseAdmin
             .from("pet_analysis_events")

@@ -28,7 +28,7 @@ interface Row {
 
 export async function buildAiUsageSummary(): Promise<AiUsageSummary> {
   const { supabaseAdmin } = await import(
-    "@/integrations/supabase/client.server"
+    "@/integrations/heroican/client.server"
   );
   const { data, error } = await supabaseAdmin
     .from("ai_usage_events")

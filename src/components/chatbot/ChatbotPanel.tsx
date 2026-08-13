@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, MessageCircle, X, Dog, Gift, Loader2 } from "lucide-react";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
+import { trackWhatsappClick } from "@/lib/waTracking";
 import { leadSchema, normalizePhoneInput } from "@/lib/validators";
 import { supabase } from "@/integrations/heroican/client";
 import {
@@ -285,6 +286,8 @@ export function ChatbotPanel({ qrParams }: Props) {
       window.localStorage.removeItem(LEGACY_SESSION_KEY);
     }
     goto("success");
+
+    trackWhatsappClick("chatbot_registro");
 
     // Navegar en la misma pestaña — evita el bloqueo cross-origin de about:blank.
     if (typeof window !== "undefined") {
@@ -653,6 +656,7 @@ export function ChatbotPanel({ qrParams }: Props) {
 }
 
 function openWhatsappUrl(url: string) {
+  trackWhatsappClick("chatbot_boton");
   const opened = window.open(url, "_blank");
   if (opened) {
     opened.opener = null;

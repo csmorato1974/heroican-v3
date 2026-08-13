@@ -78,7 +78,15 @@ export const Route = createFileRoute("/api/chatbot-message")({
           const { supabaseAdmin } = await import(
             "@/integrations/heroican/client.server"
           );
-          const { error } = await supabaseAdmin.from("chatbot_messages").insert({
+          // La tabla es específica del proyecto Heroican y no está en los tipos generados.
+          const table = (
+            supabaseAdmin as unknown as {
+              from: (t: string) => {
+                insert: (v: unknown) => Promise<{ error: { message: string } | null }>;
+              };
+            }
+          ).from("chatbot_messages");
+          const { error } = await table.insert({
             session_id: d.session_id,
             route: d.route ?? null,
             device: d.device ?? null,
@@ -93,7 +101,7 @@ export const Route = createFileRoute("/api/chatbot-message")({
             status: d.status ?? "ok",
             error_status: d.error_status ?? null,
             request_id: d.request_id ?? null,
-          } as never);
+          });
           if (error) console.error("[chatbot-message] insert failed", error.message);
         } catch (err) {
           console.error("[chatbot-message] handler error", err);

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as MetricsRouteImport } from './routes/metrics'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiChatbotMessageRouteImport } from './routes/api/chatbot-message'
 import { Route as ApiAnalyzePetRouteImport } from './routes/api/analyze-pet'
 import { Route as ApiPublicPetEventRouteImport } from './routes/api/public/pet-event'
 
@@ -22,6 +23,11 @@ const MetricsRoute = MetricsRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatbotMessageRoute = ApiChatbotMessageRouteImport.update({
+  id: '/api/chatbot-message',
+  path: '/api/chatbot-message',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAnalyzePetRoute = ApiAnalyzePetRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/metrics': typeof MetricsRoute
   '/api/analyze-pet': typeof ApiAnalyzePetRoute
+  '/api/chatbot-message': typeof ApiChatbotMessageRoute
   '/api/public/pet-event': typeof ApiPublicPetEventRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/metrics': typeof MetricsRoute
   '/api/analyze-pet': typeof ApiAnalyzePetRoute
+  '/api/chatbot-message': typeof ApiChatbotMessageRoute
   '/api/public/pet-event': typeof ApiPublicPetEventRoute
 }
 export interface FileRoutesById {
@@ -52,18 +60,30 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/metrics': typeof MetricsRoute
   '/api/analyze-pet': typeof ApiAnalyzePetRoute
+  '/api/chatbot-message': typeof ApiChatbotMessageRoute
   '/api/public/pet-event': typeof ApiPublicPetEventRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/metrics' | '/api/analyze-pet' | '/api/public/pet-event'
+  fullPaths:
+    | '/'
+    | '/metrics'
+    | '/api/analyze-pet'
+    | '/api/chatbot-message'
+    | '/api/public/pet-event'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/metrics' | '/api/analyze-pet' | '/api/public/pet-event'
+  to:
+    | '/'
+    | '/metrics'
+    | '/api/analyze-pet'
+    | '/api/chatbot-message'
+    | '/api/public/pet-event'
   id:
     | '__root__'
     | '/'
     | '/metrics'
     | '/api/analyze-pet'
+    | '/api/chatbot-message'
     | '/api/public/pet-event'
   fileRoutesById: FileRoutesById
 }
@@ -71,6 +91,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MetricsRoute: typeof MetricsRoute
   ApiAnalyzePetRoute: typeof ApiAnalyzePetRoute
+  ApiChatbotMessageRoute: typeof ApiChatbotMessageRoute
   ApiPublicPetEventRoute: typeof ApiPublicPetEventRoute
 }
 
@@ -88,6 +109,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chatbot-message': {
+      id: '/api/chatbot-message'
+      path: '/api/chatbot-message'
+      fullPath: '/api/chatbot-message'
+      preLoaderRoute: typeof ApiChatbotMessageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/analyze-pet': {
@@ -111,6 +139,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MetricsRoute: MetricsRoute,
   ApiAnalyzePetRoute: ApiAnalyzePetRoute,
+  ApiChatbotMessageRoute: ApiChatbotMessageRoute,
   ApiPublicPetEventRoute: ApiPublicPetEventRoute,
 }
 export const routeTree = rootRouteImport

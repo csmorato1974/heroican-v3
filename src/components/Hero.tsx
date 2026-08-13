@@ -1,16 +1,44 @@
+import { useEffect, useState } from "react";
 import { ScanLine } from "lucide-react";
 import type { QrParams } from "@/types/domain";
 import heroReel from "@/assets/hero-reel-profesional.mp4.asset.json";
+import heroOrbit from "@/assets/heroican-orbit.png.asset.json";
 
 interface Props {
   qrParams: QrParams;
 }
 
 export function Hero({ qrParams: _qrParams }: Props) {
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <section className="relative bg-background">
+    <section className="relative overflow-hidden bg-background">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-20"
+        style={{ background: "var(--gradient-hero)" }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center"
+        style={{ transform: `translate3d(0, ${scrollY * 0.2}px, 0)` }}
+      >
+        <img
+          src={heroOrbit.url}
+          alt=""
+          className="w-[140%] max-w-none select-none opacity-10 blur-[1px]"
+        />
+      </div>
+
       <div className="mx-auto max-w-6xl px-4 pt-12 pb-16 sm:pt-20 sm:pb-24">
         <div className="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:gap-16">
+
           <div>
             {/* Pre-CTA visible y clickeable → cámara */}
             <a

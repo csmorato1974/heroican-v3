@@ -43,7 +43,8 @@ function isAllowedOrigin(request: Request): boolean {
       host === "127.0.0.1" ||
       host.endsWith(".lovable.app") ||
       host.endsWith(".lovableproject.com") ||
-      host.endsWith("heroican.com")
+      host.endsWith("heroican.com") ||
+      host.endsWith("vinculovirtual.com")
     );
   } catch {
     return false;

@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { readEvents, clearEvents } from "@/lib/tracker";
 import { readLeads } from "@/lib/leads";
 import { getAiUsageSummary } from "@/lib/api/aiUsage.functions";
+import { getWaClickSummary } from "@/lib/api/waClicks.functions";
+import type { WaClickSummary } from "@/lib/waClicks.server";
 import type { AiUsageSummary } from "@/types/aiUsage";
 import type { Lead, TrackedEvent } from "@/types/domain";
 
@@ -36,10 +38,14 @@ function Metrics() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [usage, setUsage] = useState<AiUsageSummary | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
+  const [wa, setWa] = useState<WaClickSummary | null>(null);
 
   useEffect(() => {
     setEvents(readEvents());
     setLeads(readLeads());
+    getWaClickSummary()
+      .then((data) => setWa(data as WaClickSummary))
+      .catch(() => setWa(null));
     getAiUsageSummary()
       .then((data) => setUsage(data as AiUsageSummary))
       .catch((err: unknown) =>
@@ -100,6 +106,57 @@ function Metrics() {
           Limpiar eventos
         </Button>
       </div>
+
+      <section className="mt-12">
+        <h2 className="text-xl font-semibold">Clics en WhatsApp (servidor)</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Registro persistente y anónimo: sin números, sin mensajes, sin datos personales.
+        </p>
+
+        {!wa && <p className="mt-4 text-sm text-muted-foreground">Cargando clics…</p>}
+
+        {wa && (
+          <>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <Card label="Clics WhatsApp (total)" value={wa.total} />
+              <Card label="Clics de hoy" value={wa.today} />
+              <Card label="Últimos 7 días" value={wa.last7Days} />
+            </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <ClicksTable title="Clics por ruta" rows={wa.byRoute} firstCol="Ruta" />
+              <ClicksTable title="Clics por dispositivo" rows={wa.byDevice} firstCol="Dispositivo" />
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-border bg-card overflow-hidden">
+              <h3 className="px-3 py-2 text-sm font-semibold bg-muted">Desglose diario</h3>
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">Fecha</th>
+                    <th className="px-3 py-2">Clics</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wa.daily.map((d) => (
+                    <tr key={d.date} className="border-t border-border">
+                      <td className="px-3 py-2 font-mono">{d.date}</td>
+                      <td className="px-3 py-2">{d.clicks}</td>
+                    </tr>
+                  ))}
+                  {wa.daily.length === 0 && (
+                    <tr>
+                      <td colSpan={2} className="px-3 py-6 text-center text-muted-foreground">
+                        Aún no hay clics registrados.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="mt-12">
         <h2 className="text-xl font-semibold">Gastos estimados de API (OpenAI)</h2>
@@ -298,6 +355,45 @@ function UsageTable({
           {rows.length === 0 && (
             <tr>
               <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                Sin datos.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ClicksTable({
+  title,
+  rows,
+  firstCol,
+}: {
+  title: string;
+  rows: { key: string; clicks: number }[];
+  firstCol: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <h3 className="px-3 py-2 text-sm font-semibold bg-muted">{title}</h3>
+      <table className="w-full text-xs">
+        <thead className="text-left text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2">{firstCol}</th>
+            <th className="px-3 py-2">Clics</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key} className="border-t border-border">
+              <td className="px-3 py-2 font-mono break-all">{r.key}</td>
+              <td className="px-3 py-2">{r.clicks}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={2} className="px-3 py-6 text-center text-muted-foreground">
                 Sin datos.
               </td>
             </tr>

@@ -151,6 +151,36 @@
   color: var(--muted-foreground);
 }
 
+/* Utilidades heredadas del proyecto QR original (panel/chip del HUD) */
+@utility hud-panel {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+
+@utility hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--primary) 6%, #ffffff);
+  color: var(--primary);
+  border-radius: 999px;
+}
+
+@utility neon-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+
 @keyframes scan-line-move {
   0% { transform: translateY(0); }
   50% { transform: translateY(calc(var(--scan-distance, 100cqh) - 16px)); }

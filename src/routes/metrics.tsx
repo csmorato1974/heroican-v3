@@ -6,6 +6,8 @@ import { readLeads } from "@/lib/leads";
 import { getAiUsageSummary } from "@/lib/api/aiUsage.functions";
 import { getWaClickSummary } from "@/lib/api/waClicks.functions";
 import type { WaClickSummary } from "@/lib/waClicks.server";
+import { getChatbotMessagesSummary } from "@/lib/api/chatbotMessages.functions";
+import type { ChatbotMessagesSummary } from "@/types/chatbotMessages";
 import type { AiUsageSummary } from "@/types/aiUsage";
 import type { Lead, TrackedEvent } from "@/types/domain";
 
@@ -39,6 +41,7 @@ function Metrics() {
   const [usage, setUsage] = useState<AiUsageSummary | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
   const [wa, setWa] = useState<WaClickSummary | null>(null);
+  const [chat, setChat] = useState<ChatbotMessagesSummary | null>(null);
 
   useEffect(() => {
     setEvents(readEvents());
@@ -46,6 +49,9 @@ function Metrics() {
     getWaClickSummary()
       .then((data) => setWa(data as WaClickSummary))
       .catch(() => setWa(null));
+    getChatbotMessagesSummary()
+      .then((data) => setChat(data as ChatbotMessagesSummary))
+      .catch(() => setChat(null));
     getAiUsageSummary()
       .then((data) => setUsage(data as AiUsageSummary))
       .catch((err: unknown) =>
@@ -148,6 +154,102 @@ function Metrics() {
                     <tr>
                       <td colSpan={2} className="px-3 py-6 text-center text-muted-foreground">
                         Aún no hay clics registrados.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-xl font-semibold">Mensajes del chatbot (servidor)</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Registro server-side del flujo conversacional. No se guardan imágenes, claves
+          ni datos técnicos sensibles.
+        </p>
+
+        {!chat && <p className="mt-4 text-sm text-muted-foreground">Cargando mensajes…</p>}
+        {chat && !chat.available && (
+          <p className="mt-4 text-sm text-destructive">
+            La tabla chatbot_messages aún no está disponible en la base de datos.
+          </p>
+        )}
+
+        {chat?.available && (
+          <>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <Card label="Mensajes totales" value={chat.totalMessages} />
+              <Card label="Mensajes de hoy" value={chat.todayMessages} />
+              <Card label="Sesiones" value={chat.totalSessions} />
+              <Card label="Tokens totales" value={chat.totalTokens.toLocaleString("en-US")} />
+              <Card label="Coste total" value={usd(chat.totalCost)} />
+              <Card label="Coste por mensaje" value={usd(chat.avgCostPerMessage)} />
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-border bg-card overflow-hidden">
+              <h3 className="px-3 py-2 text-sm font-semibold bg-muted">Mensajes por día</h3>
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">Fecha</th>
+                    <th className="px-3 py-2">Mensajes</th>
+                    <th className="px-3 py-2">Tokens</th>
+                    <th className="px-3 py-2">Coste</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chat.daily.map((d) => (
+                    <tr key={d.date} className="border-t border-border">
+                      <td className="px-3 py-2 font-mono">{d.date}</td>
+                      <td className="px-3 py-2">{d.messages}</td>
+                      <td className="px-3 py-2">{d.tokens.toLocaleString("en-US")}</td>
+                      <td className="px-3 py-2">{usd(d.cost)}</td>
+                    </tr>
+                  ))}
+                  {chat.daily.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                        Aún no hay mensajes registrados.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-border bg-card overflow-x-auto">
+              <h3 className="px-3 py-2 text-sm font-semibold bg-muted">Últimos mensajes</h3>
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">Fecha</th>
+                    <th className="px-3 py-2">Sesión</th>
+                    <th className="px-3 py-2">Usuario</th>
+                    <th className="px-3 py-2">Asistente</th>
+                    <th className="px-3 py-2">Ruta</th>
+                    <th className="px-3 py-2">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chat.recent.map((m) => (
+                    <tr key={m.id} className="border-t border-border align-top">
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {new Date(m.createdAt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 font-mono">{m.sessionId.slice(0, 8)}</td>
+                      <td className="px-3 py-2 max-w-[220px]">{m.userMessage ?? "—"}</td>
+                      <td className="px-3 py-2 max-w-[260px]">{m.assistantResponse ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono">{m.route ?? "—"}</td>
+                      <td className="px-3 py-2">{m.status === "ok" ? "ok" : (m.errorStatus ?? "error")}</td>
+                    </tr>
+                  ))}
+                  {chat.recent.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                        Aún no hay mensajes registrados.
                       </td>
                     </tr>
                   )}

@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 
 import { Benefits } from "@/components/Benefits";
+import { HowItWorks } from "@/components/HowItWorks";
 import { ARPreview } from "@/components/ARPreview";
 import { ProductsMatrix } from "@/components/ProductsMatrix";
 import { Footer } from "@/components/Footer";
@@ -46,7 +47,9 @@ function Index() {
       <Hero qrParams={qrParams} />
       
       <Benefits />
+      <HowItWorks />
       <ARPreview qrParams={qrParams} />
+
       <ProductsMatrix />
       <Footer />
       <ChatbotPanel qrParams={qrParams} />

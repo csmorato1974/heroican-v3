@@ -1,6 +1,8 @@
 // Anonymous, fire-and-forget metrics for the camera trial.
 // Never throws, never blocks the UI. No PII, no photos.
 
+import { getDeviceLabel } from "./waTracking";
+
 const SESSION_KEY = "heroican_pet_session";
 
 export type PetEventType =
@@ -66,6 +68,8 @@ export function trackPetEvent(
       session_id: getSessionId(),
       event_type,
       ...getSourceCampaign(),
+      route: window.location.pathname.slice(0, 120),
+      device: getDeviceLabel(),
       ...payload,
     });
     void fetch("/api/public/pet-event", {

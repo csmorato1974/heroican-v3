@@ -47,7 +47,9 @@ function Index() {
       <Hero qrParams={qrParams} />
       
       <Benefits />
+      <HowItWorks />
       <ARPreview qrParams={qrParams} />
+
       <ProductsMatrix />
       <Footer />
       <ChatbotPanel qrParams={qrParams} />

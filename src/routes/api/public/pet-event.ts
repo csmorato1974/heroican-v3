@@ -11,6 +11,8 @@ const EventSchema = z.object({
   error_type: z.string().max(64).optional().nullable(),
   source: z.string().max(64).optional().nullable(),
   campaign: z.string().max(64).optional().nullable(),
+  route: z.string().max(120).optional().nullable(),
+  device: z.string().max(64).optional().nullable(),
 });
 
 export const Route = createFileRoute("/api/public/pet-event")({
@@ -23,14 +25,22 @@ export const Route = createFileRoute("/api/public/pet-event")({
           if (!parsed.success) {
             return new Response(null, { status: 204 });
           }
+          const { route, device, ...base } = parsed.data;
           const { supabaseAdmin } = await import(
             "@/integrations/heroican/client.server"
           );
-          const { error } = await supabaseAdmin
-            .from("pet_analysis_events")
-            .insert(parsed.data);
+          const table = supabaseAdmin.from("pet_analysis_events");
+          const { error } = await table.insert({
+            ...base,
+            ...(route ? { route } : {}),
+            ...(device ? { device } : {}),
+          } as never);
           if (error) {
-            console.error("[pet-event] insert failed", error);
+            // Compatibilidad: si las columnas route/device aún no existen, guardamos el evento base.
+            const retry = await table.insert(base);
+            if (retry.error) {
+              console.error("[pet-event] insert failed", retry.error);
+            }
           }
         } catch (err) {
           console.error("[pet-event] handler error", err);

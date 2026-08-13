@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, MessageCircle, X, Dog, Gift, Loader2 } from "lucide-react";
 import { buildRegistrationWhatsappUrl } from "@/lib/whatsapp";
 import { trackWhatsappClick } from "@/lib/waTracking";
+import { logChatbotMessage } from "@/lib/chatbotLog";
 import { leadSchema, normalizePhoneInput } from "@/lib/validators";
 import { supabase } from "@/integrations/heroican/client";
 import {
@@ -115,7 +116,37 @@ export function ChatbotPanel({ qrParams }: Props) {
     return () => window.removeEventListener("heroican:open-chatbot", handler);
   }, [registrationCompleted]);
 
-  const goto = (s: Step) => setStep(s);
+  const BOT_PROMPTS: Record<Step, string> = {
+    welcome:
+      "¡Hola! Aquí puedes registrar a tu mascota y recibir 10% de descuento por tu primer registro.",
+    petName: "¿Cómo se llama tu mascota?",
+    lifeStage: "¿En qué etapa está tu mascota?",
+    breedSize: "¿Qué tamaño de raza tiene?",
+    tutor: "Cuéntanos de ti: nombre, WhatsApp y ciudad.",
+    consents: "Confirma los permisos para generar tu cupón.",
+    success: "¡Listo! Tu 10% de descuento está generado.",
+  };
+
+  const userMessageForStep = (from: Step): string | null => {
+    if (from === "welcome") return "Quiero registrar a mi mascota";
+    if (from === "petName") return answers.petName ?? null;
+    if (from === "lifeStage") return answers.lifeStage ?? null;
+    if (from === "breedSize") return answers.breedSize ?? null;
+    if (from === "tutor") return "Datos de contacto completados";
+    if (from === "consents") return "Consentimientos confirmados";
+    return null;
+  };
+
+  const goto = (s: Step) => {
+    const from = step;
+    if (from !== s) {
+      logChatbotMessage({
+        userMessage: userMessageForStep(from),
+        assistantResponse: BOT_PROMPTS[s],
+      });
+    }
+    setStep(s);
+  };
   const answer = (
     field: keyof SessionAnswers,
     value: SessionAnswers[keyof SessionAnswers],
@@ -221,6 +252,7 @@ export function ChatbotPanel({ qrParams }: Props) {
       : Promise.resolve({ lat: null, lng: null, status: "not_requested" as const });
 
     setSubmitting(true);
+    const submitStartedAt = Date.now();
 
     const geo = await geoPromise;
     const lat = geo.lat;
@@ -263,6 +295,13 @@ export function ChatbotPanel({ qrParams }: Props) {
           ? String((err as { message?: unknown }).message)
           : String(err);
       console.error("[pet_registrations] insert failed", err);
+      logChatbotMessage({
+        userMessage: "Generar mi 10% de descuento",
+        assistantResponse: "No pudimos guardar el registro.",
+        status: "error",
+        errorStatus: "registration_insert_failed",
+        latencyMs: Date.now() - submitStartedAt,
+      });
       toast.error(`No pudimos guardar tu registro: ${msg}`);
       setSubmitting(false);
       return;
@@ -286,6 +325,12 @@ export function ChatbotPanel({ qrParams }: Props) {
       window.localStorage.removeItem(LEGACY_SESSION_KEY);
     }
     goto("success");
+
+    logChatbotMessage({
+      userMessage: "Generar mi 10% de descuento",
+      assistantResponse: "Registro guardado y cupón generado.",
+      latencyMs: Date.now() - submitStartedAt,
+    });
 
     trackWhatsappClick("chatbot_registro");
 

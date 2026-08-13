@@ -55,7 +55,7 @@ export async function buildWaClickSummary(): Promise<WaClickSummary> {
     if (basic.error) return EMPTY;
     rows = (basic.data ?? []) as Row[];
   } else {
-    rows = (rich.data ?? []) as Row[];
+    rows = (rich.data ?? []) as unknown as Row[];
   }
 
   const today = new Date().toISOString().slice(0, 10);
